@@ -44,12 +44,14 @@ def publish_clips(
     clips = clips or _default_clips(cfg)
     if not clips:
         raise PublishError("没有可发布的成片。先运行 dylive edit")
+    texts = _director_publish_texts(cfg)
+    note = cfg.activity.publish_note if cfg.activity.enabled else ""
     results = []
     for clip in clips:
         if not clip.is_file():
             raise PublishError(f"找不到成片: {clip}")
-        clip_title = (title or clip.stem)[:30]
-        desc = description or ""
+        clip_title = texts.get(clip.name) or (title or clip.stem)[:30]
+        desc = (description or "") + ((" " + note) if note else "")
         if dry_run:
             log.info("[dry-run] 跳过发布: %s title=%s", clip, clip_title)
             results.append({"clip": str(clip), "status": "dry-run", "title": clip_title})
@@ -60,6 +62,26 @@ def publish_clips(
     if job:
         write_json(job / "publish.json", {"results": results})
     return results
+
+
+def _director_publish_texts(cfg: AppConfig) -> dict[str, str]:
+    """读 director.json，返回 {成片文件名: publish_text（标题+必带话题）}。"""
+    job = latest_job(cfg)
+    if not job or not (job / "director.json").is_file():
+        return {}
+    data = read_json(job / "director.json")
+    texts: dict[str, str] = {}
+    for row in data.get("clips") or []:
+        if not isinstance(row, dict):
+            continue
+        idx = int(row.get("index", -1))
+        pt = (row.get("publish_text") or "").strip()
+        if idx < 0 or not pt:
+            continue
+        start = int(float(row.get("start", 0)))
+        end = int(float(row.get("end", 0)))
+        texts[f"{job.name}_{idx + 1:02d}_{start}-{end}.mp4"] = pt
+    return texts
 
 
 def _default_clips(cfg: AppConfig) -> list[Path]:
