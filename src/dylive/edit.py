@@ -77,6 +77,15 @@ def edit_job(
     multi = len(styles) > 1
     base_style = cfg.edit.style
 
+    from dylive.director import load_director
+
+    director = load_director(cfg, job_key)
+    directives: dict[int, dict] = {}
+    if director:
+        for row in director.get("clips") or []:
+            if isinstance(row, dict):
+                directives[int(row.get("index", len(directives)))] = row
+
     job_tl = build_job_timeline(cfg, media, highlights, transcript, room_id=room_id)
     save_timeline(timeline_path(cfg, job_key), job_tl)
 
@@ -84,9 +93,16 @@ def edit_job(
     all_words: list[Word] = []
     for i, h in enumerate(highlights, start=1):
         clip_title = title or h.title or (f"{room_id} 高能" if room_id else f"高能 {i}")
-        for style in styles:
+        d = directives.get(i - 1) or {}
+        d_style = d.get("style")
+        d_effects = d.get("effects") or {}
+        d_caption = d.get("caption_style")
+        d_cta = d.get("cta")
+        loop_styles = [d_style] if d_style else styles
+        loop_multi = len(loop_styles) > 1
+        for style in loop_styles:
             cfg.edit.style = style
-            if multi:
+            if loop_multi:
                 out = cfg.paths.output / f"{room_id or media.stem}_{i:02d}_{style}_{int(h.start)}-{int(h.end)}.mp4"
             else:
                 out = cfg.paths.output / f"{room_id or media.stem}_{i:02d}_{int(h.start)}-{int(h.end)}.mp4"
@@ -98,8 +114,10 @@ def edit_job(
                 title=clip_title,
                 room_id=room_id,
                 transcript=transcript,
-                cta=cta if cfg.create.cta else None,
+                cta=d_cta if d_cta else (cta if cfg.create.cta else None),
                 filler_cut=cfg.create.filler_cut,
+                effects=d_effects,
+                caption_style=d_caption,
             )
             outputs.append(out)
             log.info("写出 %s (%.1fs)", out, h.duration)
@@ -217,6 +235,8 @@ def render_clip(
     transcript: Transcript | None = None,
     cta: str | None = None,
     filler_cut: bool = False,
+    effects: dict | None = None,
+    caption_style: str | None = None,
 ) -> Path:
     if transcript is None or not transcript.words:
         raise MediaError("没有词级字幕，请先运行 dylive transcribe")
@@ -226,6 +246,12 @@ def render_clip(
     dur = max(0.2, highlight.end - highlight.start)
     font = require_cjk_font()
     spec0 = resolve_style(cfg)
+    if caption_style:
+        spec0.caption_style = caption_style
+    if effects:
+        for _k, _v in effects.items():
+            if isinstance(_v, bool) and hasattr(spec0, _k):
+                setattr(spec0, _k, _v)
     clip_tl = build_clip_timeline(cfg, media, highlight, transcript, room_id=room_id, title=title)
     extra_effects = []
     vt = clip_tl.track("video")
