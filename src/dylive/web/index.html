@@ -3,65 +3,55 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>抖音直播切片工作室</title>
+  <title>抖音直播切片</title>
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
-  <div id="app">
-    <aside class="rail">
-      <div class="brand">
-        <span class="logo" aria-hidden="true">DY</span>
-        <div>
-          <h1>抖音直播切片工作室</h1>
-          <p class="muted">dylive · 二次创作工作台</p>
-        </div>
-      </div>
-      <label class="field">
-        <span>直播链接</span>
-        <textarea id="url" rows="3" placeholder="粘贴 https://live.douyin.com/…"></textarea>
-      </label>
-      <div class="row">
-        <button id="btn-start" class="primary">开始切片</button>
-        <button id="btn-dry" class="ghost">Dry-run</button>
-      </div>
-      <div class="stages" id="stages"></div>
-      <h2>任务</h2>
-      <ul class="jobs" id="jobs"></ul>
-      <h2>实时日志</h2>
-      <pre class="log" id="log"></pre>
-    </aside>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">DY</span>
+      <span class="brand-name">抖音直播切片</span>
+    </div>
+    <span class="tag">DeepSeek 导演 · 全自动</span>
+  </header>
 
-    <main class="stage">
-      <div class="phone">
-        <div class="notch"></div>
-        <video id="preview" playsinline controls></video>
-        <div class="phone-empty" id="preview-empty">9:16 成片预览</div>
+  <main id="app">
+    <section class="hero" id="hero">
+      <h1>贴个链接，自动剪出高能切片</h1>
+      <p class="sub">自动看直播 · 识别高能 · AI 判断最优特效 · 剪成竖屏成片</p>
+      <div class="composer">
+        <input id="url" type="text" placeholder="粘贴直播链接，如 https://live.douyin.com/…" autocomplete="off" spellcheck="false" />
+        <button id="btn-start">开始切片</button>
       </div>
-      <div class="gallery" id="gallery"></div>
-    </main>
-
-    <section class="inspector">
-      <h2>风格预设</h2>
-      <div class="pills" id="styles"></div>
-      <h2>多版本</h2>
-      <div class="pills" id="versions"></div>
-      <h2>二次创作</h2>
-      <div class="actions">
-        <button id="btn-create" class="block">重新生成（改题/钩子/解说）</button>
-      </div>
-      <h2>转场 xfade</h2>
-      <select id="xfade"></select>
-      <div class="toggles" id="toggles"></div>
-      <h2>高能片段</h2>
-      <ul class="highlights" id="highlights"></ul>
-      <div class="actions">
-        <button id="btn-open" class="block">打开成片目录</button>
-        <button id="btn-jy" class="block">导出剪映草稿</button>
-        <button id="btn-pub" class="block ghost">发布（dry-run）</button>
-      </div>
-      <p class="hint" id="hint">配音需在 config.yaml 设 create.voiceover=true 并 pip install -e ".[voice]"。</p>
+      <div class="hint">首次使用请先在终端执行 <code>dylive login</code> 扫码登录抖音</div>
     </section>
+
+    <section class="running" id="running" hidden>
+      <div class="spinner"></div>
+      <h2 id="run-title">正在等待主播开播…</h2>
+      <p class="sub" id="run-sub">开播后自动录制、转写、检测高能、剪辑</p>
+      <div class="log" id="log"></div>
+    </section>
+
+    <section class="results" id="results" hidden>
+      <h2>切片结果</h2>
+      <p class="sub" id="room-label"></p>
+      <div class="grid" id="grid"></div>
+    </section>
+
+    <section class="empty" id="empty" hidden>
+      <h2>还没有切片</h2>
+      <p class="sub">贴上方的直播链接，点「开始切片」就会自动产出</p>
+    </section>
+  </main>
+
+  <div class="backdrop" id="backdrop" hidden>
+    <div class="preview-box">
+      <video id="preview" controls playsinline></video>
+      <button class="close" id="btn-close" aria-label="关闭">×</button>
+    </div>
   </div>
+
   <script src="/static/app.js"></script>
 </body>
 </html>
