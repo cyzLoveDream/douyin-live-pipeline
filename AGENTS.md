@@ -17,17 +17,19 @@ dylive record <url>
 dylive transcribe [path|room]   # 必做。data/jobs/<id>/transcript.json（segments + words）
 dylive detect [path|room]       # 缺转写会先 transcribe；写出 highlights.json（含 why）
 dylive create [room]             # 二次创作：文案改写/钩子/CTA/解说稿/剪口播；可选 edge-tts 配音
+dylive director [room]           # DeepSeek 导演：判断每条最优特效/风格/文案，写 director.json
 dylive edit   [path|room]       # 强制烧字幕；写出 timeline.json + 成片 + 剪映旁路
 dylive compile [room]           # xfade 合成 <room>_pack.mp4
 dylive jianying [room]          # pyJianYingDraft 写草稿目录
 dylive ui                       # 本地客户端 http://127.0.0.1:8787
 dylive publish [--dry-run]
+dylive auto <url>               # 全自动无人值守（含 DeepSeek 导演 + 发布）；不启动 UI
 dylive run <url> --dry-run      # 以上全部（仍跳过发布）；有显示器默认开 UI
 ```
 
 状态文件：
 
-- `data/jobs/<id>/watch.json` `record.json` `transcript.json` `highlights.json` `timeline.json` `edit.json`
+- `data/jobs/<id>/watch.json` `record.json` `transcript.json` `highlights.json` `create.json` `director.json` `cover.json` `timeline.json` `edit.json`
 - `recordings/<id>/manifest.json`（原始分段，成片只引用 in/out，不改写）
 
 ## 字幕样式
@@ -36,7 +38,7 @@ dylive run <url> --dry-run      # 以上全部（仍跳过发布）；有显示�
 
 ## 特效预设
 
-`edit.style`：`douyin_hot`（默认）| `clean` | `party`。库在 `src/dylive/effects.py`：`zoom_in`/`zoom_out`/`pan`/`punch_zoom`/`shake`/`flash`/`fade`/`caption_mask`，另含 vignette/grain/glitch/rgb_split/contrast。时间轴特效是参数，不是改源文件。
+`edit.style`：`douyin_hot`（默认）| `clean` | `party` | `cinematic` | `vlog`。库在 `src/dylive/effects.py`：`zoom_in`/`zoom_out`/`pan`/`punch_zoom`/`shake`/`flash`/`fade`/`caption_mask`，另含 vignette/grain/glitch/rgb_split/contrast。时间轴特效是参数，不是改源文件。
 
 ## 时间轴
 
@@ -58,4 +60,5 @@ dylive run <url> --dry-run      # 以上全部（仍跳过发布）；有显示�
 - 本地 UI 用 src/dylive/web 自包含 SPA。
 - 测试用 ffmpeg 小夹具；禁止提交大媒体；禁止在测试里加载 whisper 模型。`pytest` 要绿。
 - 剪映无官方 API。用 extra jianying (pyJianYingDraft) 写新草稿；勿解密 7+，勿点 UI 自动化，勿 vendor 第三方草稿源码。
-- 不要引入 Coze / DashScope 强依赖。LLM 文案无 key 时降级为启发式。
+- 不要引入 Coze / DashScope 强依赖。LLM 走 OpenAI 兼容（默认 DeepSeek），无 key 时降级启发式。
+- 导演决策（dylive.director）用 deepseek-v4-pro 判断每条特效/风格/文案；豆包 Vision（dylive.vision）抽帧选封面，均无 key 自动跳过。
