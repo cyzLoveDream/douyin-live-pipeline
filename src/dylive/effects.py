@@ -40,7 +40,7 @@ EFFECT_NAMES = (
     "mirror",
 )
 
-XFADE_TYPES = ("fade", "fadeblack", "wipeleft", "slideleft", "circlecrop")
+XFADE_TYPES = ("fade", "fadeblack", "wipeleft", "slideleft", "circlecrop", "slideup")
 
 EFFECT_LABELS = {
     "zoom_in": "缓入放大",
@@ -65,6 +65,7 @@ EFFECT_LABELS = {
     "wipeleft": "左擦除转场",
     "slideleft": "左滑转场",
     "circlecrop": "圆形遮罩转场",
+    "slideup": "上滑转场",
 }
 
 
@@ -134,6 +135,44 @@ def resolve_style(cfg: AppConfig) -> StyleSpec:
             vignette=True,
             grain=True,
             glitch=True,
+            contrast=True,
+        )
+    elif name == "cinematic":
+        spec = StyleSpec(
+            name="cinematic",
+            fill="crop",
+            caption_style="standard",
+            punch=False,
+            shake=False,
+            jumpcut=False,
+            hook=False,
+            saturation=True,
+            progress=False,
+            keyword_pop=False,
+            caption_mask=False,
+            fade_in=True,
+            vignette=True,
+            grain=True,
+            glitch=False,
+            contrast=True,
+        )
+    elif name == "vlog":
+        spec = StyleSpec(
+            name="vlog",
+            fill="blur",
+            caption_style=caption,
+            punch=True,
+            shake=False,
+            jumpcut=False,
+            hook=True,
+            saturation=True,
+            progress=True,
+            keyword_pop=False,
+            caption_mask=mask,
+            fade_in=fade,
+            vignette=False,
+            grain=True,
+            glitch=False,
             contrast=True,
         )
     else:
@@ -639,6 +678,7 @@ def build_filter_complex(
     pops: list[tuple[float, float, str]] | None,
     plan: list[tuple[float, float, float]] | None,
     extra_effects: list[dict] | None = None,
+    cta_text: str | None = None,
     bgm: bool = False,
 ) -> tuple[str, str, str]:
     """Return (filter_complex, video_label, audio_label). Input 0 is the trimmed clip."""
@@ -672,6 +712,16 @@ def build_filter_complex(
             f"fontsize={fs}:x=28:y=h-56:box=1:boxcolor=black@0.4:boxborderw=6[vsrc]"
         )
         v = "vsrc"
+    if cta_text and font:
+        fs = max(18, int(width * 0.042))
+        text = drawtext_escape(cta_text[:24])
+        cta_d = min(1.8, duration * 0.5)
+        filters.append(
+            f"[{v}]drawtext=fontfile='{font}':text='{text}':fontcolor=white:"
+            f"fontsize={fs}:x=(w-text_w)/2:y=h*0.80:box=1:boxcolor=0xFE2C55@0.85:"
+            f"boxborderw=12:enable='gte(t,{max(0.0, duration - cta_d):.2f})'[vcta]"
+        )
+        v = "vcta"
     if spec.keyword_pop and pops and font:
         v = _keyword_pops(filters, v, font, width, pops)
     if spec.caption_mask:
