@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dylive"
+version = "0.1.0"
+description = "Portable Douyin live clipping pipeline: watch, record, detect highlights, edit, publish."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+authors = [{ name = "cyzLoveDream" }]
+keywords = ["douyin", "live", "clip", "ffmpeg", "yt-dlp"]
+dependencies = [
+  "yt-dlp==2026.3.17",
+  "playwright==1.52.0",
+  "PyYAML==6.0.2",
+  "typer==0.16.0",
+  "httpx==0.28.1",
+]
+
+[project.optional-dependencies]
+whisper = ["faster-whisper>=1.1.0"]
+dev = ["pytest>=8.3.0"]
+
+[project.scripts]
+dylive = "dylive.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/cyzLoveDream/douyin-live-pipeline"
+Repository = "https://github.com/cyzLoveDream/douyin-live-pipeline"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

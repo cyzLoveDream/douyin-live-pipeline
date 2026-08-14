@@ -1,0 +1,53 @@
+# Secrets and local env
+.env
+.env.*
+!.env.example
+cookies.txt
+*.cookies
+*cookie*.txt
+
+# Runtime data
+recordings/
+output/
+data/
+models/
+.faster-whisper/
+*.mp4
+*.mkv
+*.webm
+*.flv
+*.ts
+*.m4a
+*.wav
+*.aac
+*.srt
+*.ass
+!tests/**
+
+# Browser profile
+data/browser-profile/
+**/browser-profile/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+config.yaml

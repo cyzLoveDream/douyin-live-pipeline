@@ -1,0 +1,55 @@
+# Copy to config.yaml. Do not put secrets here.
+
+paths:
+  recordings: recordings
+  output: output/clips
+  data: data
+  cookies: cookies.txt
+  browser_profile: data/browser-profile
+
+http:
+  timeout_seconds: 25
+  retries: 3
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+
+watch:
+  poll_interval_seconds: 15
+  timeout_seconds: 0   # 0 = wait until live forever
+
+record:
+  segment_seconds: 60
+  resume_gap_seconds: 8
+  max_seconds: 0       # 0 = until the live ends
+  prefer: auto         # auto | ytdlp | ffmpeg
+
+detect:
+  min_clip_seconds: 12
+  max_clip_seconds: 45
+  merge_gap_seconds: 4
+  pad_before_seconds: 1.5
+  pad_after_seconds: 2.0
+  audio_window_seconds: 0.25
+  audio_percentile: 90
+  scene_threshold: 0.35
+  # Optional JSON: [{"t": 12.3, "type": "chat"|"gift", "weight": 1}]
+  # Not scraped from private APIs — only used if you already have a file.
+  chat_events_file: null
+
+edit:
+  aspect: "9:16"
+  fill: blur           # blur | crop
+  width: 1080
+  height: 1920
+  loudness_i: -14
+  title_card: true
+  title_card_seconds: 1.2
+  source_caption: true
+  whisper: false
+  whisper_model: small
+
+publish:
+  url: https://creator.douyin.com/creator-micro/content/upload
+  mode: draft          # draft | publish
+  visibility: public   # public | friends | private
+  headed: true
+  timeout_seconds: 180
