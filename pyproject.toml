@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dylive"
-version = "0.3.0"
-description = "Portable Douyin live clipping pipeline: watch, record, transcribe, detect highlights, edit, publish."
+version = "0.4.0"
+description = "Portable Douyin live clipping pipeline: watch, record, transcribe, detect highlights, create (二次创作), edit, publish."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11"
@@ -26,6 +26,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8.3.0"]
 jianying = ["pyJianYingDraft>=0.2.0"]
+voice = ["edge-tts>=6.1.0"]
 
 [project.scripts]
 dylive = "dylive.cli:app"
