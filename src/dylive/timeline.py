@@ -13,7 +13,7 @@ from typing import Any
 from dylive.captions import first_sentence, slice_words
 from dylive.config import AppConfig
 from dylive.detect import Highlight
-from dylive.effects import keyword_pops, loudest_interval, resolve_style
+from dylive.effects import keyword_pops, loudest_interval, resolve_style, style_named_effects
 from dylive.state import write_json
 from dylive.transcribe import Transcript, Word
 
@@ -122,13 +122,7 @@ def build_clip_timeline(
     if spec.punch:
         punch = loudest_interval(media, src_in, src_out, length=cfg.edit.punch_seconds)
 
-    effects: list[dict[str, Any]] = []
-    if spec.saturation:
-        effects.append({"name": "saturation", "params": {"amount": 1.14}})
-    if spec.fade_in:
-        effects.append({"name": "fade", "params": {"type": "in", "duration": 0.25}})
-    if spec.punch and punch:
-        effects.append({"name": "punch_zoom", "params": {"start": round(punch[0], 3), "end": round(punch[1], 3)}})
+    effects: list[dict[str, Any]] = style_named_effects(spec, punch=punch, duration=dur)
     if spec.caption_mask:
         effects.append({"name": "caption_mask", "params": {"ratio": 0.16}})
     if spec.progress:

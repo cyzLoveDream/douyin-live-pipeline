@@ -18,8 +18,10 @@ dylive transcribe [path|room]   # 必做。data/jobs/<id>/transcript.json（segm
 dylive detect [path|room]       # 缺转写会先 transcribe；写出 highlights.json（含 why）
 dylive edit   [path|room]       # 强制烧字幕；写出 timeline.json + 成片 + 剪映旁路
 dylive compile [room]           # xfade 合成 <room>_pack.mp4
+dylive jianying [room]          # pyJianYingDraft 写草稿目录
+dylive ui                       # 本地客户端 http://127.0.0.1:8787
 dylive publish [--dry-run]
-dylive run <url> --dry-run      # 以上全部（仍跳过发布）
+dylive run <url> --dry-run      # 以上全部（仍跳过发布）；有显示器默认开 UI
 ```
 
 状态文件：
@@ -33,7 +35,7 @@ dylive run <url> --dry-run      # 以上全部（仍跳过发布）
 
 ## 特效预设
 
-`edit.style`：`douyin_hot`（默认）| `clean` | `party`。库在 `src/dylive/effects.py`：`zoom_in`/`zoom_out`/`pan`/`punch_zoom`/`shake`/`flash`/`fade`/`caption_mask`，带 ease-in-out。时间轴特效是参数，不是改源文件。
+`edit.style`：`douyin_hot`（默认）| `clean` | `party`。库在 `src/dylive/effects.py`：`zoom_in`/`zoom_out`/`pan`/`punch_zoom`/`shake`/`flash`/`fade`/`caption_mask`，另含 vignette/grain/glitch/rgb_split/contrast。时间轴特效是参数，不是改源文件。
 
 ## 时间轴
 
@@ -52,6 +54,7 @@ dylive run <url> --dry-run      # 以上全部（仍跳过发布）
 
 - 直播状态只从公开 HTML 解析。不要新增需 `a_bogus` 的 webcast enter。
 - 上传只走官方创作者中心页。
+- 本地 UI 用 src/dylive/web 自包含 SPA。
 - 测试用 ffmpeg 小夹具；禁止提交大媒体；禁止在测试里加载 whisper 模型。`pytest` 要绿。
-- 不要 vendoring NarratoAI 的剪映草稿生成器；剪映导出只给 clips + srt + IMPORT.md。
+- 剪映无官方 API。用 extra jianying (pyJianYingDraft) 写新草稿；勿解密 7+，勿点 UI 自动化，勿 vendor 第三方草稿源码。
 - 不要引入 Coze / DashScope 强依赖。LLM 文案无 key 时降级为启发式。

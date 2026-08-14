@@ -83,8 +83,13 @@ edit:
   punch_seconds: 0.45
   silence_speed: 1.12
   xfade_seconds: 0.25
+  xfade: fadeblack         # fade | fadeblack | wipeleft | slideleft | circlecrop
   caption_mask: true
   fade_in: true
+  vignette: null           # null = follow preset
+  grain: null
+  glitch: null
+  progress: null
   bgm: null               # local file, e.g. assets/bgm/loop.mp3; missing = skip
 
 publish:

@@ -43,3 +43,8 @@ class MediaError(DyliveError):
 
 class PublishError(DyliveError):
     """Creator-center upload page could not complete."""
+
+
+class DependencyError(DyliveError):
+    """Optional extra is not installed (e.g. pyJianYingDraft)."""
+

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>抖音直播切片工作室</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <aside class="rail">
+      <div class="brand">
+        <span class="logo" aria-hidden="true">DY</span>
+        <div>
+          <h1>切片工作室</h1>
+          <p class="muted">dylive · 本地客户端</p>
+        </div>
+      </div>
+      <label class="field">
+        <span>直播链接</span>
+        <textarea id="url" rows="3" placeholder="粘贴 https://live.douyin.com/…"></textarea>
+      </label>
+      <div class="row">
+        <button id="btn-start" class="primary">开始</button>
+        <button id="btn-dry" class="ghost">Dry-run</button>
+      </div>
+      <div class="stages" id="stages"></div>
+      <h2>任务</h2>
+      <ul class="jobs" id="jobs"></ul>
+      <h2>实时日志</h2>
+      <pre class="log" id="log"></pre>
+    </aside>
+
+    <main class="stage">
+      <div class="phone">
+        <div class="notch"></div>
+        <video id="preview" playsinline controls></video>
+        <div class="phone-empty" id="preview-empty">9:16 成片预览</div>
+      </div>
+      <div class="gallery" id="gallery"></div>
+    </main>
+
+    <section class="inspector">
+      <h2>检查器</h2>
+      <label class="field">
+        <span>风格预设</span>
+        <div class="pills" id="styles">
+          <button data-style="douyin_hot" class="on">douyin_hot</button>
+          <button data-style="party">party</button>
+          <button data-style="clean">clean</button>
+        </div>
+      </label>
+      <label class="field">
+        <span>转场 xfade</span>
+        <select id="xfade">
+          <option value="fadeblack">fadeblack 闪黑</option>
+          <option value="fade">fade 叠化</option>
+          <option value="wipeleft">wipeleft 左擦</option>
+          <option value="slideleft">slideleft 左滑</option>
+          <option value="circlecrop">circlecrop 圆遮罩</option>
+        </select>
+      </label>
+      <div class="toggles" id="toggles"></div>
+      <h2>高能片段</h2>
+      <ul class="highlights" id="highlights"></ul>
+      <div class="actions">
+        <button id="btn-open" class="block">打开成片目录</button>
+        <button id="btn-jy" class="block">导出剪映草稿</button>
+        <button id="btn-pub" class="block ghost">发布（dry-run）</button>
+      </div>
+      <p class="hint" id="hint">剪映没有官方 API。导出草稿后用「剪映专业版」打开 draft 目录。</p>
+    </section>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

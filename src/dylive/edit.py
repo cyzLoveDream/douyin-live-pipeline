@@ -114,7 +114,7 @@ def compile_job(cfg: AppConfig, source: str | Path | None = None) -> Path:
     cfg.paths.ensure()
     job_key, clips = _load_rendered_clips(cfg, source)
     dest = cfg.paths.output / f"{job_key}_pack.mp4"
-    xfade_concat(clips, dest, xfade=cfg.edit.xfade_seconds, transition="fadeblack")
+    xfade_concat(clips, dest, xfade=cfg.edit.xfade_seconds, transition=cfg.edit.xfade or "fadeblack")
     log.info("合集 %s (%s clips, xfade=%.2fs)", dest, len(clips), cfg.edit.xfade_seconds)
     return dest
 

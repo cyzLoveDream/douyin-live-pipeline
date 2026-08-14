@@ -1,4 +1,4 @@
-"""CLI: dylive run|watch|record|transcribe|detect|edit|compile|publish|login."""
+"""CLI: dylive run|watch|record|transcribe|detect|edit|compile|jianying|ui|publish|login."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from dylive.logutil import setup_logging
 app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
-    help="抖音直播高能切片流水线：watch → record → transcribe → detect → edit → compile → publish",
+    help="抖音直播高能切片流水线：watch → record → transcribe → detect → edit → compile → 剪映草稿 / 本地 UI → publish",
 )
 
 log = logging.getLogger("dylive.cli")
@@ -180,40 +180,63 @@ def login(
 
 
 @app.command()
+def jianying(
+    ctx: typer.Context,
+    room: Optional[str] = typer.Argument(None, help="房间 id；默认最近一次 job"),
+) -> None:
+    """用 pyJianYingDraft 写出剪映专业版可打开的草稿目录。"""
+    from dylive.jianying import OPEN_HINT, write_jianying_draft
+
+    dest = _run(lambda: write_jianying_draft(_cfg(ctx), room))
+    if dest:
+        typer.echo(str(dest))
+        typer.echo(OPEN_HINT)
+
+
+@app.command()
+def ui(
+    ctx: typer.Context,
+    host: str = typer.Option("127.0.0.1", "--host"),
+    port: int = typer.Option(8787, "--port"),
+    no_browser: bool = typer.Option(False, "--no-browser", help="不自动打开浏览器"),
+) -> None:
+    """启动本地客户端（FastAPI + 自包含 SPA），默认 http://127.0.0.1:8787 。"""
+    from dylive.server import serve_ui
+
+    typer.echo("打开 http://127.0.0.1:8787 查看成片")
+    serve_ui(_cfg(ctx), host=host, port=port, open_browser=not no_browser)
+
+
+@app.command()
 def run(
     ctx: typer.Context,
     url: str = typer.Argument(..., help="直播间 URL"),
     dry_run: bool = typer.Option(False, "--dry-run", help="剪辑后不发布"),
     max_seconds: Optional[float] = typer.Option(None, "--max-seconds", help="最长录制秒数"),
     title: Optional[str] = typer.Option(None, "--title"),
+    ui: bool = typer.Option(False, "--ui", help="结束后启动本地客户端"),
+    open_ui: Optional[bool] = typer.Option(
+        None, "--open-ui/--no-open-ui", help="结束后打开浏览器查看成片（有显示器时默认打开）"
+    ),
 ) -> None:
     """全流程: watch → record → transcribe → detect → edit → compile → publish。"""
-    from dylive.detect import detect_job
-    from dylive.edit import compile_job, edit_job
-    from dylive.publish import publish_clips
-    from dylive.record import record_url
-    from dylive.transcribe import transcribe_job
+    from dylive.pipeline import run_pipeline
+    from dylive.server import has_display, serve_ui
 
     cfg = _cfg(ctx)
 
     def go():
-        dest = record_url(cfg, url, wait=True, max_seconds=max_seconds)
-        typer.echo(f"recordings: {dest}")
-        media, tr = transcribe_job(cfg, dest)
-        typer.echo(f"transcript: {len(tr.words)} words  media={media}")
-        media, highs = detect_job(cfg, dest)
-        typer.echo(f"highlights: {len(highs)}  media={media}")
-        clips = edit_job(cfg, dest.name, title=title, room_id=dest.name)
-        for c in clips:
+        result = run_pipeline(cfg, url, dry_run=dry_run, max_seconds=max_seconds, title=title)
+        typer.echo(f"recordings room: {result.get('room')}")
+        for c in result.get("clips") or []:
             typer.echo(f"clip: {c}")
-        try:
-            pack = compile_job(cfg, dest.name)
-            typer.echo(f"pack: {pack}")
-        except Exception as exc:  # noqa: BLE001
-            log.warning("合集跳过: %s", exc)
-        pub_title = title or (highs[0].title if highs else None)
-        publish_clips(cfg, clips, dry_run=dry_run, title=pub_title)
-        return clips
+        if result.get("pack"):
+            typer.echo(f"pack: {result['pack']}")
+        typer.echo("打开 http://127.0.0.1:8787 查看成片")
+        launch = ui or (open_ui if open_ui is not None else has_display())
+        if launch:
+            serve_ui(cfg, open_browser=open_ui is not False)
+        return result.get("clips")
 
     _run(go)
 

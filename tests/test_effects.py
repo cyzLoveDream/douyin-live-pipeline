@@ -72,3 +72,58 @@ def test_xfade_two_clips(tmp_path: Path):
     xfade_concat([a, b], dest, xfade=0.25)
     assert dest.is_file()
     assert duration_seconds(dest) >= 1.5
+
+
+NEW_GRAPHS = (
+    "vignette",
+    "grain",
+    "glitch",
+    "rgb_split",
+    "contrast",
+    "freeze",
+    "speed_ramp",
+    "mirror",
+)
+
+
+def test_new_effect_graphs_accepted(tmp_path: Path):
+    src = make_landscape_video(tmp_path / "in.mp4", seconds=2.0)
+    for name in NEW_GRAPHS:
+        dest = tmp_path / f"{name}.mp4"
+        params = {
+            "start": 0.4,
+            "end": 0.9,
+            "amount": 8,
+            "clip_duration": 2.0,
+            "duration": 0.2,
+            "speed": 1.2,
+        }
+        snippet = render_effect(name, "0:v", "vout", params, width=320, height=240, duration=2.0)
+        assert snippet, name
+        proc = subprocess.run(
+            [
+                "ffmpeg", "-hide_banner", "-loglevel", "error",
+                "-i", str(src),
+                "-filter_complex", snippet,
+                "-map", "[vout]",
+                "-an", "-t", "0.8",
+                "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                "-y", str(dest),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert proc.returncode == 0, f"{name}: {proc.stderr}"
+        assert dest.is_file()
+
+
+def test_xfade_types_compile(tmp_path: Path):
+    from dylive.effects import XFADE_TYPES, xfade_concat
+
+    a = make_landscape_video(tmp_path / "a.mp4", seconds=1.2)
+    b = make_landscape_video(tmp_path / "b.mp4", seconds=1.2)
+    for kind in XFADE_TYPES:
+        dest = tmp_path / f"pack_{kind}.mp4"
+        xfade_concat([a, b], dest, xfade=0.2, transition=kind)
+        assert dest.is_file(), kind

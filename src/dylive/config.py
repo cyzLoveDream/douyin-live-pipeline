@@ -172,11 +172,16 @@ class EditConfig:
     punch_seconds: float = 0.45
     silence_speed: float = 1.12
     xfade_seconds: float = 0.25
+    xfade: str = "fadeblack"
     caption_mask: bool = True
     fade_in: bool = True
     bgm: Path | None = None
     whisper: bool = True
     whisper_model: str = "small"
+    vignette: bool | None = None
+    grain: bool | None = None
+    glitch: bool | None = None
+    progress: bool | None = None
 
 
 @dataclass
@@ -211,6 +216,8 @@ class AppConfig:
             raise ConfigError("edit.fill 只能是 blur / crop")
         if self.edit.style not in {"douyin_hot", "clean", "party"}:
             raise ConfigError("edit.style 只能是 douyin_hot / clean / party")
+        if self.edit.xfade not in {"fade", "fadeblack", "wipeleft", "slideleft", "circlecrop"}:
+            raise ConfigError("edit.xfade 只能是 fade / fadeblack / wipeleft / slideleft / circlecrop")
         if self.edit.caption_style not in {"hormozi", "douyin", "standard"}:
             raise ConfigError("edit.caption_style 只能是 hormozi / douyin / standard")
         if self.publish.mode not in {"draft", "publish"}:
@@ -361,9 +368,14 @@ def _edit(raw: dict[str, Any]) -> EditConfig:
         punch_seconds=_num(raw.get("punch_seconds"), 0.45, name="edit.punch_seconds", min_v=0.25),
         silence_speed=_num(raw.get("silence_speed"), 1.12, name="edit.silence_speed", min_v=1.05),
         xfade_seconds=_num(raw.get("xfade_seconds"), 0.25, name="edit.xfade_seconds", min_v=0.05),
+        xfade=str(raw.get("xfade") or "fadeblack"),
         caption_mask=_bool(raw.get("caption_mask"), True),
         fade_in=_bool(raw.get("fade_in"), True),
         bgm=Path(raw["bgm"]).expanduser() if raw.get("bgm") else None,
+        vignette=_bool_opt(raw.get("vignette")),
+        grain=_bool_opt(raw.get("grain")),
+        glitch=_bool_opt(raw.get("glitch")),
+        progress=_bool_opt(raw.get("progress")),
         whisper=_bool(raw.get("whisper"), True),
         whisper_model=str(raw.get("whisper_model") or raw.get("model") or "small"),
     )

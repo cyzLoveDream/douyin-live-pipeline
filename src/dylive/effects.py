@@ -30,7 +30,42 @@ EFFECT_NAMES = (
     "caption_mask",
     "progress_bar",
     "saturation",
+    "vignette",
+    "grain",
+    "glitch",
+    "rgb_split",
+    "contrast",
+    "freeze",
+    "speed_ramp",
+    "mirror",
 )
+
+XFADE_TYPES = ("fade", "fadeblack", "wipeleft", "slideleft", "circlecrop")
+
+EFFECT_LABELS = {
+    "zoom_in": "缓入放大",
+    "zoom_out": "缓出缩小",
+    "pan": "平移",
+    "punch_zoom": "能量峰冲击放大",
+    "shake": "抖动",
+    "flash": "闪白",
+    "fade": "淡入淡出",
+    "caption_mask": "口播底栏遮罩",
+    "progress_bar": "底部进度条",
+    "saturation": "饱和度",
+    "vignette": "暗角",
+    "grain": "胶片颗粒",
+    "glitch": "故障闪切",
+    "rgb_split": "RGB 色差分裂",
+    "contrast": "质感对比",
+    "freeze": "定格",
+    "speed_ramp": "局部变速",
+    "mirror": "镜像一击",
+    "fadeblack": "闪黑转场",
+    "wipeleft": "左擦除转场",
+    "slideleft": "左滑转场",
+    "circlecrop": "圆形遮罩转场",
+}
 
 
 @dataclass
@@ -48,6 +83,13 @@ class StyleSpec:
     caption_mask: bool = True
     fade_in: bool = True
     silence_speed: float = 1.12
+    vignette: bool = False
+    grain: bool = False
+    glitch: bool = False
+    contrast: bool = False
+    freeze: bool = False
+    speed_ramp: bool = False
+    mirror: bool = False
 
 
 def resolve_style(cfg: AppConfig) -> StyleSpec:
@@ -69,6 +111,10 @@ def resolve_style(cfg: AppConfig) -> StyleSpec:
             keyword_pop=False,
             caption_mask=False,
             fade_in=False,
+            vignette=False,
+            grain=False,
+            glitch=False,
+            contrast=False,
         )
     elif name == "party":
         spec = StyleSpec(
@@ -85,6 +131,10 @@ def resolve_style(cfg: AppConfig) -> StyleSpec:
             caption_mask=mask,
             fade_in=fade,
             silence_speed=cfg.edit.silence_speed,
+            vignette=True,
+            grain=True,
+            glitch=True,
+            contrast=True,
         )
     else:
         spec = StyleSpec(
@@ -100,6 +150,10 @@ def resolve_style(cfg: AppConfig) -> StyleSpec:
             keyword_pop=False,
             caption_mask=mask,
             fade_in=fade,
+            vignette=True,
+            grain=True,
+            glitch=False,
+            contrast=True,
         )
     if cfg.edit.zoom_punch is not None:
         spec.punch = cfg.edit.zoom_punch
@@ -109,14 +163,39 @@ def resolve_style(cfg: AppConfig) -> StyleSpec:
         spec.jumpcut = cfg.edit.jumpcut
     if cfg.edit.keyword_pop is not None:
         spec.keyword_pop = cfg.edit.keyword_pop
+    if cfg.edit.vignette is not None:
+        spec.vignette = cfg.edit.vignette
+    if cfg.edit.grain is not None:
+        spec.grain = cfg.edit.grain
+    if cfg.edit.glitch is not None:
+        spec.glitch = cfg.edit.glitch
+    if getattr(cfg.edit, "progress", None) is not None:
+        spec.progress = cfg.edit.progress
     return spec
 
 
 def fallback_specs(spec: StyleSpec) -> list[StyleSpec]:
     out = [spec]
-    stripped = replace(spec, shake=False, jumpcut=False, keyword_pop=False)
+    stripped = replace(
+        spec,
+        shake=False,
+        jumpcut=False,
+        keyword_pop=False,
+        glitch=False,
+        freeze=False,
+        speed_ramp=False,
+        mirror=False,
+    )
     if stripped != spec:
         out.append(stripped)
+    mild = replace(
+        stripped,
+        grain=False,
+        vignette=False,
+        contrast=stripped.contrast,
+    )
+    if mild not in out and mild != stripped:
+        out.append(mild)
     core = replace(
         spec,
         shake=False,
@@ -126,6 +205,13 @@ def fallback_specs(spec: StyleSpec) -> list[StyleSpec]:
         progress=False,
         hook=False,
         fade_in=False,
+        grain=False,
+        vignette=False,
+        glitch=False,
+        freeze=False,
+        speed_ramp=False,
+        mirror=False,
+        contrast=False,
         saturation=spec.saturation if spec.name != "clean" else False,
         caption_mask=spec.caption_mask if spec.name != "clean" else False,
     )
@@ -202,7 +288,90 @@ def render_effect(
     if key in {"saturation", "sat"}:
         sat = float(params.get("amount") or 1.14)
         return f"[{vin}]eq=saturation={sat:.3f}:contrast=1.05[{vout}]"
+    if key in {"vignette", "dark_corners"}:
+        angle = str(params.get("angle") or "PI/4")
+        return f"[{vin}]vignette={angle}[{vout}]"
+    if key in {"grain", "noise", "film_grain"}:
+        amount = float(params.get("amount") or 10)
+        return f"[{vin}]noise=alls={amount:.1f}:allf=t+u[{vout}]"
+    if key in {"glitch", "glitch_pulse"}:
+        start = float(params.get("start") or 0.0)
+        end = float(params.get("end") or (start + 0.35))
+        return (
+            f"[{vin}]chromashift=cbh=10:crh=-10:enable='between(t,{start:.3f},{end:.3f})'[{vout}]"
+        )
+    if key in {"rgb_split", "rgb-split", "rgbsplit", "chromashift"}:
+        start = params.get("start")
+        end = params.get("end")
+        shift = int(params.get("amount") or 6)
+        rgb = f"rgbashift=rh={shift}:bh=-{shift}:rv=2:bv=-2"
+        if start is not None and end is not None:
+            rgb += f":enable='between(t,{float(start):.3f},{float(end):.3f})'"
+        return f"[{vin}]format=rgba,{rgb},format=yuv420p[{vout}]"
+    if key in {"contrast", "eq", "zhigan", "质感"}:
+        amount = float(params.get("amount") or 1.12)
+        sat = float(params.get("saturation") or 1.08)
+        gamma = float(params.get("gamma") or 0.98)
+        return f"[{vin}]eq=contrast={amount:.3f}:saturation={sat:.3f}:gamma={gamma:.3f}[{vout}]"
+    if key == "freeze":
+        start = float(params.get("start") or 0.5)
+        hold = float(params.get("duration") or params.get("hold") or 0.24)
+        return _freeze_chain(vin, vout, start, hold)
+    if key in {"speed_ramp", "speedramp"}:
+        start = float(params.get("start") or 0.4)
+        end = float(params.get("end") or 1.2)
+        speed = float(params.get("speed") or 1.25)
+        duration = float(params.get("clip_duration") or duration)
+        return _speed_ramp_chain(vin, vout, start, end, speed, duration)
+    if key == "mirror":
+        start = float(params.get("start") or 0.0)
+        end = float(params.get("end") or (start + 0.2))
+        return _mirror_chain(vin, vout, start, end)
     return None
+
+
+def style_named_effects(
+    spec: StyleSpec,
+    *,
+    punch: tuple[float, float] | None = None,
+    duration: float = 2.0,
+) -> list[dict]:
+    """ffmpeg effects stacked by preset. caption_mask / progress are applied later (on top)."""
+    named: list[dict] = []
+    peak = punch or (max(0.0, duration * 0.35), min(duration, duration * 0.35 + 0.4))
+    if spec.contrast:
+        named.append({"name": "contrast", "params": {"amount": 1.12}})
+    if spec.saturation:
+        named.append({"name": "saturation", "params": {"amount": 1.14}})
+    if spec.vignette:
+        named.append({"name": "vignette", "params": {"angle": "PI/4"}})
+    if spec.grain:
+        named.append({"name": "grain", "params": {"amount": 14 if spec.name == "party" else 8}})
+    if spec.fade_in:
+        named.append({"name": "fade", "params": {"type": "in", "duration": 0.25}})
+    if spec.punch and punch:
+        named.append({"name": "punch_zoom", "params": {"start": punch[0], "end": punch[1]}})
+    if spec.glitch:
+        named.append({"name": "glitch", "params": {"start": peak[0], "end": peak[1]}})
+        named.append({"name": "rgb_split", "params": {"start": peak[0], "end": peak[1], "amount": 6}})
+    if spec.freeze and punch:
+        named.append({"name": "freeze", "params": {"start": punch[0], "duration": 0.16}})
+    if spec.mirror and punch:
+        named.append({"name": "mirror", "params": {"start": punch[0], "end": min(punch[1], punch[0] + 0.2)}})
+    if spec.speed_ramp:
+        named.append(
+            {
+                "name": "speed_ramp",
+                "params": {"start": duration * 0.25, "end": duration * 0.55, "speed": 1.2, "clip_duration": duration},
+            }
+        )
+    return named
+
+
+def effect_catalog() -> dict:
+    ffmpeg = [{"name": n, "label": EFFECT_LABELS.get(n, n), "kind": "ffmpeg"} for n in EFFECT_NAMES]
+    xfade = [{"name": n, "label": EFFECT_LABELS.get(n, n), "kind": "xfade"} for n in XFADE_TYPES]
+    return {"ffmpeg": ffmpeg, "xfade": xfade, "presets": ["douyin_hot", "party", "clean"]}
 
 
 def apply_named_effects(
@@ -276,6 +445,47 @@ def _shake_chain(vin: str, vout: str, w: int, h: int, start: float, end: float) 
         f"[{vin}]split[{mid}][{src}];"
         f"[{src}]crop=iw-20:ih-20:'10+9*sin(18*t)':'10+7*cos(22*t)',scale={w}:{h}[{sh}];"
         f"[{mid}][{sh}]overlay=0:0:enable='between(t,{start:.3f},{end:.3f})'[{vout}]"
+    )
+
+
+def _freeze_chain(vin: str, vout: str, start: float, hold: float) -> str:
+    hold = max(0.08, hold)
+    base = f"{vin}_fz"
+    fr = f"{vin}_fr"
+    held = f"{vin}_hold"
+    return (
+        f"[{vin}]split[{base}][{fr}];"
+        f"[{fr}]trim=start={start:.3f}:end={start + 0.04:.3f},setpts=PTS-STARTPTS,"
+        f"loop=loop=8:size=1:start=0,setpts=N/25/TB[{held}];"
+        f"[{base}][{held}]overlay=0:0:enable='between(t,{start:.3f},{start + hold:.3f})'[{vout}]"
+    )
+
+
+def _speed_ramp_chain(
+    vin: str, vout: str, start: float, end: float, speed: float, duration: float
+) -> str:
+    start = max(0.0, start)
+    end = min(max(start + 0.05, end), max(start + 0.05, duration))
+    speed = min(1.5, max(1.08, speed))
+    pre, mid, post = f"{vin}_sp0", f"{vin}_sp1", f"{vin}_sp2"
+    p0, p1, p2 = f"{vin}_p0", f"{vin}_p1", f"{vin}_p2"
+    return (
+        f"[{vin}]split=3[{pre}][{mid}][{post}];"
+        f"[{pre}]trim=0:{start:.3f},setpts=PTS-STARTPTS[{p0}];"
+        f"[{mid}]trim={start:.3f}:{end:.3f},setpts=PTS-STARTPTS,setpts=PTS/{speed:.3f}[{p1}];"
+        f"[{post}]trim=start={end:.3f},setpts=PTS-STARTPTS[{p2}];"
+        f"[{p0}][{p1}][{p2}]concat=n=3:v=1:a=0[{vout}]"
+    )
+
+
+def _mirror_chain(vin: str, vout: str, start: float, end: float) -> str:
+    base = f"{vin}_mb"
+    fl = f"{vin}_mf"
+    mir = f"{vin}_mir"
+    return (
+        f"[{vin}]split[{base}][{fl}];"
+        f"[{fl}]hflip[{mir}];"
+        f"[{base}][{mir}]overlay=0:0:enable='between(t,{start:.3f},{end:.3f})'[{vout}]"
     )
 
 
@@ -435,12 +645,11 @@ def build_filter_complex(
     filters: list[str] = []
     v = _vertical(filters, spec.fill, width, height)
     named: list[dict] = list(extra_effects or [])
-    if spec.saturation and not any((e.get("name") == "saturation") for e in named):
-        named.insert(0, {"name": "saturation", "params": {"amount": 1.14}})
-    if spec.fade_in and not any((e.get("name") == "fade") for e in named):
-        named.append({"name": "fade", "params": {"type": "in", "duration": 0.25}})
-    if spec.punch and punch and not any((e.get("name") in {"punch_zoom", "punch"}) for e in named):
-        named.append({"name": "punch_zoom", "params": {"start": punch[0], "end": punch[1]}})
+    have = {(e.get("name") or e.get("type") or "") for e in named}
+    for e in style_named_effects(spec, punch=punch, duration=duration):
+        if e["name"] not in have:
+            named.append(e)
+            have.add(e["name"])
     v = apply_named_effects(filters, v, named, width=width, height=height, duration=duration)
     if spec.shake:
         span = punch if punch else (max(0.0, duration * 0.35), min(duration, duration * 0.35 + 0.4))

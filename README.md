@@ -1,8 +1,8 @@
 # douyin-live-pipeline
 
-把一条抖音直播链接变成竖屏高能切片：转写 → 多信号高能检测 → 词级字幕 + 抖音风特效 → 可选发布。换机器 `git clone` 后按本文安装即可跑。
+把一条抖音直播链接变成竖屏高能切片：转写 → 多信号高能检测 → 词级字幕 + 抖音风特效 → 本地客户端预览 → 可选剪映草稿 / 发布。换机器 `git clone` 后按本文安装即可跑。
 
-包名 **dylive**，命令行入口也是 `dylive`。当前版本 **0.2.0**。
+包名 **dylive**，命令行入口也是 `dylive`。当前版本 **0.3.0**。
 
 这是 **直播切片流水线**，不是影视解说整片工具。口播转写、高能窗、成片字幕和特效是一等公民，不是可选项。
 
@@ -16,6 +16,7 @@
 4. **yt-dlp 现状（2026）**：官方 extractor 不管 Douyin 直播。流水线解析公开直播页 HTML 里的 `RENDER_DATA` / `hls_pull_url` / `flv_pull_url`，再交给 yt-dlp 或 ffmpeg。
 5. **CPU whisper**：默认 `small` + `int8`。长录像会慢；可在配置里改 `transcribe.model`（`tiny`/`base` 更快更糙）。测试**不会**下载模型。
 6. **字体**：烧录中文字幕需要 Noto Sans CJK / 思源黑体 / 文泉驿 / PingFang。缺字体时会明确提示 `sudo apt install fonts-noto-cjk`。
+7. **剪映没有官方 API**。本项目用 pyJianYingDraft 写新草稿给剪映专业版打开。不解密剪映 7+ 旧草稿，也不做 Windows 界面连点导出。
 
 ---
 
@@ -25,7 +26,7 @@
 | --- | --- |
 | Python | 3.11+ |
 | 系统 | **ffmpeg** + ffprobe + 中文字体（`fonts-noto-cjk`） |
-| Python 包 | `yt-dlp` `playwright` `pyyaml` `typer` `httpx` `numpy` **`faster-whisper`**（硬依赖） |
+| Python 包 | `yt-dlp` `playwright` `pyyaml` `typer` `httpx` `numpy` **`faster-whisper`** `fastapi` `uvicorn`（硬依赖） |
 
 ```bash
 git clone https://github.com/cyzLoveDream/douyin-live-pipeline.git
@@ -33,6 +34,7 @@ cd douyin-live-pipeline
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
+# 可选：pip install -e ".[jianying]"   # pyJianYingDraft，写剪映草稿
 playwright install chromium
 
 sudo apt install -y ffmpeg fonts-noto-cjk     # Debian/Ubuntu
@@ -46,11 +48,16 @@ cp .env.example .env
 
 ---
 
+## 本地客户端
+
+dylive ui 启动本地工作室。打开 http://127.0.0.1:8787 查看成片。run 结束会打印该地址。
+
 ## 命令
 
 ```bash
 dylive --help
 dylive -c config.yaml run "https://live.douyin.com/<web_rid>" --dry-run
+dylive ui          # 打开 http://127.0.0.1:8787 查看成片
 ```
 
 分阶段：
@@ -71,6 +78,8 @@ dylive edit --title "今晚高能" --room-id 745964462470
 
 # 把成片 xfade 合成竖屏合集
 dylive compile
+
+dylive jianying              # pyJianYingDraft 草稿，需 pip install -e ".[jianying]"
 
 dylive publish --dry-run
 dylive login
@@ -121,11 +130,11 @@ dylive login
 
 | 预设 | 观感 |
 | --- | --- |
-| **`douyin_hot`（默认）** | 9:16 模糊填充、loudnorm、douyin/hormozi 字幕、口播首句 hook、能量峰 **punch_zoom**、淡入、饱和度、底栏遮罩、进度条、来源字幕 |
+| **`douyin_hot`（默认）** | 9:16 模糊填充、loudnorm、douyin/hormozi 字幕、口播首句 hook、能量峰 **punch**、淡入、质感对比、暗角、轻度颗粒、底栏遮罩、进度条、来源字幕 |
 | `clean` | 裁切 9:16、standard 字幕、loudnorm、来源字幕，不 punch |
-| `party` | douyin_hot + 峰值微抖 + 段内静音略加速（1.08–1.15）+ 关键词大字弹出 |
+| `party` | douyin_hot + 峰值微抖 + glitch/RGB分裂 + 静音略加速 + 关键词弹出 |
 
-效果库在 `src/dylive/effects.py`（带 ease-in-out）：`zoom_in` / `zoom_out` / `pan` / `punch_zoom` / `shake` / `flash` / `fade` / `caption_mask`。图编译失败会降级，但默认预设仍应产出「看起来剪过」的文件。
+效果库在 `src/dylive/effects.py`：zoom_in/out, pan, punch_zoom, shake, flash, fade, caption_mask, progress_bar, saturation, vignette, grain, glitch, rgb_split, contrast, freeze, speed_ramp, mirror。图编译失败会降级，但默认预设仍应产出「看起来剪过」的文件。
 
 可选本地 BGM：`edit.bgm` 指向 `assets/bgm/` 里你自己的循环乐，口播用 `sidechaincompress` duck；文件不存在就跳过。
 
@@ -135,13 +144,24 @@ dylive login
 
 每次 job 写 `data/jobs/<room>/timeline.json`。成片**不改写原始录像**，视频轨只用 `src` + `in` / `out` 指向原片，最后编译成 ffmpeg。轨类型：`video` / `caption` / `effect` / `overlay` / `audio`。
 
-`dylive compile` 把已导出的竖屏成片用 `xfade`（默认 fadeblack 0.25s）合成 `output/clips/<room>_pack.mp4`。
+`dylive compile` 把已导出的竖屏成片用 xfade（edit.xfade：fade/fadeblack/wipeleft/slideleft/circlecrop，默认 fadeblack 0.25s）合成 `output/clips/<room>_pack.mp4`。
 
 ---
 
-## 剪映旁路导出
+## 剪映草稿（没有官方 API）
 
-`output/jianying/<room>/` 里有成片、`captions.ass` / `captions.srt`、`timeline.json` 和 `IMPORT.md`。把 mp4 + srt 拖进剪映即可。这不是剪映草稿格式，也不去克隆别人的 draft builder。
+剪映 / CapCut **没有官方开放 API**。本项目用 pyJianYingDraft（pip install -e ".[jianying]"）写新草稿，给「剪映专业版」打开。不解密剪映 7+ 旧草稿，也不做界面连点自动导出。
+
+    dylive jianying [room]
+
+写出 output/jianying/<room>/draft/（draft_content.json 等）并复制媒体。用剪映专业版打开该草稿目录（设置里把草稿位置指过来，或把文件夹拷进剪映草稿目录）。Windows 可直接用；macOS/Linux 生成后仍需在剪映里打开。缺库时会提示 pip install 'dylive[jianying]'。
+
+旁路目录仍有 clip_*.mp4 + srt，可直接拖进剪映。
+
+### 特效对照（ffmpeg 预览 vs 剪映草稿）
+
+fade=叠化；fadeblack=闪黑；wipeleft=向左擦除；slideleft=左移；circlecrop=圆形遮罩；punch_zoom=斜切（入场）；shake=抖动；flash=闪白；glitch=故障；rgb_split=色差故障；grain=胶片；vignette=暗角；contrast=质感；saturation=原生肤。
+
 
 ---
 
@@ -150,7 +170,9 @@ dylive login
 ```
 recordings/<room>/          # 分段录像（不改写）
 output/clips/               # 成片 + <room>_pack.mp4
-output/jianying/<room>/     # 剪映旁路
+output/jianying/<room>/     # 旁路 mp4/srt
+output/jianying/<room>/draft/  # pyJianYingDraft 草稿
+src/dylive/web/             # 本地客户端 SPA
 data/jobs/<room>/           # watch/record/transcript/highlights/timeline/edit.json
 assets/bgm/                 # 可选本地配乐（不要提交大 mp3）
 ```
@@ -163,7 +185,7 @@ assets/bgm/                 # 可选本地配乐（不要提交大 mp3）
 pytest
 ```
 
-用 ffmpeg 生成很小的 wav/mp4。转写测试注入 FakeTranscriber / fixture JSON，**不下载 whisper 模型**。
+用 ffmpeg 生成很小的 wav/mp4。转写测试注入 FakeTranscriber / fixture JSON，**不下载 whisper 模型**。UI 用 TestClient。剪映草稿单测用假 writer。
 
 ---
 
@@ -189,5 +211,8 @@ pytest
 | 成片报「没有词级字幕」 | 先 `dylive transcribe` |
 | BGM 没混上 | 检查 `edit.bgm` 路径；缺文件会跳过而不是崩 |
 | 没 LLM 标题 | 没 key 时用口播首句，属预期 |
+| 导出剪映草稿提示缺库 | pip install 'dylive[jianying]' |
+| 剪映 7+ 打不开旧草稿 | 预期：只写新草稿，不解密 |
+| 想让剪映自动导出成片 | 不支持（剪映 7+ 无自动导出） |
 
 许可证：MIT。

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dylive"
-version = "0.2.0"
+version = "0.3.0"
 description = "Portable Douyin live clipping pipeline: watch, record, transcribe, detect highlights, edit, publish."
 readme = "README.md"
 license = { text = "MIT" }
@@ -19,10 +19,13 @@ dependencies = [
   "httpx==0.28.1",
   "numpy>=2.0",
   "faster-whisper>=1.1.0",
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.32.0",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.3.0"]
+jianying = ["pyJianYingDraft>=0.2.0"]
 
 [project.scripts]
 dylive = "dylive.cli:app"
@@ -33,9 +36,13 @@ Repository = "https://github.com/cyzLoveDream/douyin-live-pipeline"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
+include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+dylive = ["web/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
