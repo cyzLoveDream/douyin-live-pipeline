@@ -263,6 +263,46 @@ def run(
     _run(go)
 
 
+@app.command()
+def director(
+    ctx: typer.Context,
+    source: Optional[str] = typer.Argument(None, help="highlights.json / 房间 id；默认最近一次检测"),
+) -> None:
+    """DeepSeek 导演决策：判断每条高能片段的最优特效/风格/文案，写 director.json。"""
+    from dylive.director import director_job
+
+    def go():
+        payload = director_job(_cfg(ctx), source)
+        typer.echo(f"cta: {payload.get('cta')}")
+        for c in payload.get("clips") or []:
+            typer.echo(f"  {c['index'] + 1:02d}  {c['style']}  {c['title']}  |  {c.get('reason', '')}")
+        return payload
+
+    _run(go)
+
+
+@app.command()
+def auto(
+    ctx: typer.Context,
+    url: str = typer.Argument(..., help="直播间 URL"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="只剪辑不发布"),
+    max_seconds: Optional[float] = typer.Option(None, "--max-seconds", help="最长录制秒数"),
+) -> None:
+    """全自动无人值守：看播 → 录制 → 转写 → 高能 → DeepSeek 导演决策 → 剪辑 → 发布。"""
+    from dylive.pipeline import run_pipeline
+
+    def go():
+        result = run_pipeline(_cfg(ctx), url, dry_run=dry_run, max_seconds=max_seconds)
+        typer.echo(f"房间: {result.get('room')}")
+        for c in result.get("clips") or []:
+            typer.echo(f"成片: {c}")
+        if result.get("pack"):
+            typer.echo(f"合集: {result['pack']}")
+        return result.get("clips")
+
+    _run(go)
+
+
 def _run(fn):
     try:
         return fn()
