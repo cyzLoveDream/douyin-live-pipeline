@@ -12,8 +12,8 @@
       <div class="brand">
         <span class="logo" aria-hidden="true">DY</span>
         <div>
-          <h1>切片工作室</h1>
-          <p class="muted">dylive · 本地客户端</p>
+          <h1>抖音直播切片工作室</h1>
+          <p class="muted">dylive · 二次创作工作台</p>
         </div>
       </div>
       <label class="field">
@@ -21,7 +21,7 @@
         <textarea id="url" rows="3" placeholder="粘贴 https://live.douyin.com/…"></textarea>
       </label>
       <div class="row">
-        <button id="btn-start" class="primary">开始</button>
+        <button id="btn-start" class="primary">开始切片</button>
         <button id="btn-dry" class="ghost">Dry-run</button>
       </div>
       <div class="stages" id="stages"></div>
@@ -41,25 +41,16 @@
     </main>
 
     <section class="inspector">
-      <h2>检查器</h2>
-      <label class="field">
-        <span>风格预设</span>
-        <div class="pills" id="styles">
-          <button data-style="douyin_hot" class="on">douyin_hot</button>
-          <button data-style="party">party</button>
-          <button data-style="clean">clean</button>
-        </div>
-      </label>
-      <label class="field">
-        <span>转场 xfade</span>
-        <select id="xfade">
-          <option value="fadeblack">fadeblack 闪黑</option>
-          <option value="fade">fade 叠化</option>
-          <option value="wipeleft">wipeleft 左擦</option>
-          <option value="slideleft">slideleft 左滑</option>
-          <option value="circlecrop">circlecrop 圆遮罩</option>
-        </select>
-      </label>
+      <h2>风格预设</h2>
+      <div class="pills" id="styles"></div>
+      <h2>多版本</h2>
+      <div class="pills" id="versions"></div>
+      <h2>二次创作</h2>
+      <div class="actions">
+        <button id="btn-create" class="block">重新生成（改题/钩子/解说）</button>
+      </div>
+      <h2>转场 xfade</h2>
+      <select id="xfade"></select>
       <div class="toggles" id="toggles"></div>
       <h2>高能片段</h2>
       <ul class="highlights" id="highlights"></ul>
@@ -68,7 +59,7 @@
         <button id="btn-jy" class="block">导出剪映草稿</button>
         <button id="btn-pub" class="block ghost">发布（dry-run）</button>
       </div>
-      <p class="hint" id="hint">剪映没有官方 API。导出草稿后用「剪映专业版」打开 draft 目录。</p>
+      <p class="hint" id="hint">配音需在 config.yaml 设 create.voiceover=true 并 pip install -e ".[voice]"。</p>
     </section>
   </div>
   <script src="/static/app.js"></script>

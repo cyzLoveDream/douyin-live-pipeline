@@ -8,13 +8,14 @@ from typing import Any
 from dylive.config import AppConfig
 from dylive.state import read_json
 
-STAGES = ("watch", "record", "transcribe", "detect", "edit", "compile")
+STAGES = ("watch", "record", "transcribe", "detect", "create", "edit", "compile")
 
 STAGE_FILE = {
     "watch": "watch.json",
     "record": "record.json",
     "transcribe": "transcript.json",
     "detect": "highlights.json",
+    "create": "create.json",
     "edit": "edit.json",
 }
 
@@ -117,6 +118,8 @@ def highlight_entries(job: Path) -> list[dict[str, Any]]:
                 "end": end,
                 "score": float(row.get("score") or 0),
                 "title": row.get("title") or "",
+                "hook": row.get("hook") or "",
+                "hashtags": row.get("hashtags") or [],
                 "why": row.get("why") or {},
                 "snippet": snippet,
             }
