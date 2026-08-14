@@ -10,7 +10,7 @@ from dylive.exceptions import ConfigError
 def test_default_config(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     cfg = load_config(None)
-    assert cfg.detect.min_clip_seconds == 12
+    assert cfg.detect.min_clip_seconds == 8
     assert cfg.detect.max_clip_seconds == 45
     assert cfg.publish.mode == "draft"
     assert cfg.publish.url.endswith("/content/upload")
@@ -29,3 +29,15 @@ def test_cookies_env_override(tmp_path, monkeypatch):
     monkeypatch.setenv("DYLIVE_COOKIES", str(tmp_path / "from-env.txt"))
     cfg = load_config(p)
     assert cfg.paths.cookies == Path(tmp_path / "from-env.txt")
+
+
+def test_edit_style_defaults(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    cfg = load_config(None)
+    assert cfg.edit.style == "douyin_hot"
+    assert cfg.edit.caption_style == "douyin"
+    assert cfg.transcribe.model == "small"
+    assert cfg.transcribe.language == "zh"
+    assert "买它" in cfg.detect.keywords
+    assert cfg.detect.max_clips == 5
+    assert cfg.detect.weights.keywords == 1.4

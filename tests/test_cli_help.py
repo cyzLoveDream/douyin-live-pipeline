@@ -8,7 +8,7 @@ runner = CliRunner()
 def test_help():
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    for name in ("watch", "record", "detect", "edit", "publish", "login", "run"):
+    for name in ("watch", "record", "transcribe", "detect", "edit", "compile", "publish", "login", "run"):
         assert name in result.output
 
 

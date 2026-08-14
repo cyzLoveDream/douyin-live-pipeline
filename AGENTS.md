@@ -1,60 +1,57 @@
 # AGENTS.md — 给其他 agent 的运行说明书
 
-本仓库是可移植的抖音直播切片流水线。包名 `dylive`。不要去逆向 `a_bogus`、不要破解验证码、不要读取用户操作系统里的浏览器 cookie 或密码。
+本仓库是可移植的抖音**直播切片**流水线（不是影视解说整片）。包名 `dylive`。不要去逆向 `a_bogus`、不要破解验证码、不要读取用户操作系统里的浏览器 cookie 或密码。
 
 ## 输入
 
-- 直播 URL：`https://live.douyin.com/<web_rid>` 或 `https://v.douyin.com/<code>/` 分享短链。
-- 配置：仓库根目录 `config.yaml`（从 `config.example.yaml` 复制）。可用 `--config` 或 `DYLIVE_CONFIG`。
+- 直播 URL：`https://live.douyin.com/<web_rid>` 或 `https://v.douyin.com/<code>/`。
+- 配置：`config.yaml`（从 `config.example.yaml` 复制）。`--config` 或 `DYLIVE_CONFIG`。
 - 网络：必须能打开 Douyin。海外设 `HTTPS_PROXY`。
-- 登录：发布前、以及直播页被墙时，需要人扫码。
+- 转写：`faster-whisper` 是硬依赖。测试必须注入 FakeTranscriber 或 fixture `transcript.json`，禁止下载模型。
 
 ## 阶段命令（按顺序）
 
-在仓库根、已 `pip install -e .` 且 `PATH` 里有 `ffmpeg` 的环境执行：
-
 ```text
-dylive watch  <url>          # 解析 web_rid，轮询直到 LIVE（--once 只查一次）
-dylive record <url>          # 写入 recordings/<id>/ 分段文件；断流会按 resume_gap 续录
-dylive detect [path|room]    # 读录像，写 data/jobs/<id>/highlights.json
-dylive edit   [path|room]    # 读 highlights.json，写 output/clips/*.mp4
-dylive publish [--dry-run]   # Playwright 打开创作者上传页；dry-run 则跳过
-dylive run <url> --dry-run   # 以上全部（仍跳过发布）
+dylive watch  <url>
+dylive record <url>
+dylive transcribe [path|room]   # 必做。data/jobs/<id>/transcript.json（segments + words）
+dylive detect [path|room]       # 缺转写会先 transcribe；写出 highlights.json（含 why）
+dylive edit   [path|room]       # 强制烧字幕；写出 timeline.json + 成片 + 剪映旁路
+dylive compile [room]           # xfade 合成 <room>_pack.mp4
+dylive publish [--dry-run]
+dylive run <url> --dry-run      # 以上全部（仍跳过发布）
 ```
 
-状态文件（阶段之间靠这些衔接，不要删）：
+状态文件：
 
-- `data/jobs/<id>/watch.json` `record.json` `highlights.json` `edit.json`
-- `recordings/<id>/manifest.json`
+- `data/jobs/<id>/watch.json` `record.json` `transcript.json` `highlights.json` `timeline.json` `edit.json`
+- `recordings/<id>/manifest.json`（原始分段，成片只引用 in/out，不改写）
 
-默认 `publish.mode` 是 **draft**（暂存离开），不是公开发布。
+## 字幕样式
 
-## 何时必须找人（operator）
+`edit.caption_style`：`hormozi` | `douyin`（默认）| `standard`。调用 `dylive.captions.build_ass` / `write_ass`。缺中文字体要提示安装 `fonts-noto-cjk`。
 
-停下、打印原因、不要重试破解：
+## 特效预设
 
-1. **第一次使用 / 登录过期** → 跑 `dylive login`（headed Chromium）。人用抖音 App 扫码。资料目录：`data/browser-profile/`。
-2. **页面出现「扫码登录」「请完成验证」「短信验证」「安全验证」** → 暂停并告诉人在窗口里完成，然后按 Enter（非 TTY 则等 90s）。
-3. **NeedAccessError**（验证码墙、403、没有 RENDER_DATA）→ 告诉人：准备 `cookies.txt`（Netscape），或换到能打开 Douyin 的网络 / 代理。
-4. **创作者中心 DOM 对不上**（没有 `input[type=file]` 或找不到「发布」）→ headed 模式留下窗口，让人手工点。
+`edit.style`：`douyin_hot`（默认）| `clean` | `party`。库在 `src/dylive/effects.py`：`zoom_in`/`zoom_out`/`pan`/`punch_zoom`/`shake`/`flash`/`fade`/`caption_mask`，带 ease-in-out。时间轴特效是参数，不是改源文件。
 
-不要：
+## 时间轴
 
-- 实现签名算法、滑块、协议破解；
-- 把 `.env`、`cookies.txt`、`data/browser-profile/` 提交到 git；
-- 默认去搬运别人的直播（版权 / ToS）。来源字幕配置项是 `edit.source_caption`。
+`timeline.json` 的 tracks：`video` / `caption` / `effect` / `overlay` / `audio`。video clip = `{src, in, out, effects[]}`。`dylive.timeline.build_clip_timeline` 给其他 agent 用。
 
-## 实现约束（改代码时）
+## 何时必须找人
 
-- 直播状态和流地址只从**公开直播页 HTML** 解析（`RENDER_DATA`、`hls_pull_url` 等）。不要新增未公开、需 `a_bogus` 的 webcast enter 调用。
-- yt-dlp 的 `DouyinIE` 目前不管 live.douyin.com；录制路径是「页面流 URL → yt-dlp/ffmpeg」。
-- 上传只走官方页 `https://creator.douyin.com/creator-micro/content/upload`，用可见中文文案定位控件，不要依赖哈希 CSS 类。
-- 测试必须用 ffmpeg 生成小夹具，禁止提交大媒体文件。`pytest` 要绿。
+1. 登录过期 → `dylive login`
+2. 页面出现扫码/验证码/短信 → 停下让人完成
+3. NeedAccessError → cookies / 大陆网络 / 代理
+4. 创作者中心 DOM 对不上 → headed 模式留下窗口
 
-## 安装备忘
+不要：签名算法、滑块、协议破解；提交 `.env` / `cookies.txt` / `data/browser-profile/`；默认搬运别人的直播。
 
-```bash
-pip install -e ".[dev]"
-playwright install chromium
-# apt install ffmpeg fonts-noto-cjk   或  brew install ffmpeg
-```
+## 实现约束
+
+- 直播状态只从公开 HTML 解析。不要新增需 `a_bogus` 的 webcast enter。
+- 上传只走官方创作者中心页。
+- 测试用 ffmpeg 小夹具；禁止提交大媒体；禁止在测试里加载 whisper 模型。`pytest` 要绿。
+- 不要 vendoring NarratoAI 的剪映草稿生成器；剪映导出只给 clips + srt + IMPORT.md。
+- 不要引入 Coze / DashScope 强依赖。LLM 文案无 key 时降级为启发式。

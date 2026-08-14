@@ -72,3 +72,82 @@ def test_full_detect_on_beep(app_cfg, tmp_path: Path):
     assert highs
     assert all(h.duration <= app_cfg.detect.max_clip_seconds + 0.05 for h in highs)
     assert all(h.end > h.start for h in highs)
+
+
+def test_loud_burst_is_top_window():
+    import numpy as np
+
+    from dylive.config import DetectConfig
+    from dylive.detect import analyze_samples, score_and_select
+
+    sr = 8000
+    total = 10.0
+    samples = np.zeros(int(sr * total), dtype=np.float32)
+    t0, t1 = int(4.0 * sr), int(5.0 * sr)
+    samples[t0:t1] = 0.7 * np.sin(2 * np.pi * 440 * np.arange(t1 - t0) / sr)
+    frames = analyze_samples(samples, sr, 0.25)
+    cfg = DetectConfig(
+        min_clip_seconds=2,
+        max_clip_seconds=5,
+        max_clips=1,
+        pad_before_seconds=0.4,
+        pad_after_seconds=0.4,
+        merge_gap_seconds=1,
+    )
+    highs = score_and_select(frames, total, cfg)
+    assert highs, "expected a window covering the loud burst"
+    top = highs[0]
+    assert top.start <= 4.2
+    assert top.end >= 4.8
+    assert top.why["energy"] > 0
+
+
+def test_keyword_boosts_quiet_region():
+    import numpy as np
+
+    from dylive.config import DetectConfig
+    from dylive.detect import analyze_samples, score_and_select
+    from dylive.transcribe import Segment, Transcript, Word
+
+    sr = 8000
+    total = 12.0
+    samples = np.ones(int(sr * total), dtype=np.float32) * 0.004
+    frames = analyze_samples(samples, sr, 0.25)
+    tr = Transcript(
+        language="zh",
+        segments=[
+            Segment(
+                start=8.0,
+                end=8.6,
+                text="家人们买它",
+                words=[Word(8.0, 8.3, "家人们", 0.9), Word(8.3, 8.6, "买它", 0.95)],
+            )
+        ],
+    )
+    cfg = DetectConfig(
+        min_clip_seconds=2,
+        max_clip_seconds=6,
+        max_clips=1,
+        pad_before_seconds=0.5,
+        pad_after_seconds=0.5,
+        keywords=["买它"],
+        merge_gap_seconds=1,
+    )
+    highs = score_and_select(frames, total, cfg, transcript=tr)
+    assert highs
+    assert highs[0].start <= 8.3 <= highs[0].end
+    assert highs[0].why["keywords"] > 0
+
+
+def test_snap_window_to_word_boundaries():
+    from dylive.detect import snap_window
+    from dylive.transcribe import Word
+
+    words = [
+        Word(1.0, 1.3, "hello", 1.0),
+        Word(1.3, 1.6, "world", 1.0),
+        Word(5.0, 5.4, "end", 1.0),
+    ]
+    start, end = snap_window(1.12, 5.22, words, max_delta=0.35)
+    assert abs(start - 1.0) < 1e-6
+    assert abs(end - 5.4) < 1e-6

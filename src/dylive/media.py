@@ -150,16 +150,94 @@ def list_media(directory: Path) -> list[Path]:
 CJK_FONT_CANDIDATES = [
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+    "/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf",
     "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
-    "/System/Library/Fonts/STHeiti Light.ttc",
+    "/usr/share/fonts/truetype/noto-cjk/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/truetype/noto/NotoSansSC-Regular.otf",
+    "/usr/share/fonts/opentype/noto/NotoSansSC-Regular.otf",
+    "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+    "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+    "/usr/share/fonts/truetype/wqy/WenQuanYiMicroHei.ttf",
     "/System/Library/Fonts/PingFang.ttc",
+    "/System/Library/Fonts/STHeiti Light.ttc",
     "C:/Windows/Fonts/msyh.ttc",
-    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "C:/Windows/Fonts/msyh.ttf",
+    "C:/Windows/Fonts/simhei.ttf",
 ]
 
+_LATIN_FALLBACK = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 
-def find_font() -> str | None:
+_FONT_INSTALL_HINT = (
+    "找不到中文字体，烧录字幕需要 Noto Sans CJK / Noto Sans SC / 文泉驿 / PingFang。\n"
+    "  Debian/Ubuntu: sudo apt install fonts-noto-cjk\n"
+    "  macOS: 系统自带 PingFang\n"
+    "  Windows: 微软雅黑 msyh.ttc"
+)
+
+
+def find_cjk_font() -> str | None:
     for p in CJK_FONT_CANDIDATES:
         if Path(p).is_file():
             return p
+    found = _fc_list_cjk()
+    if found:
+        return found
+    return None
+
+
+def find_font() -> str | None:
+    """CJK font if possible, otherwise a Latin fallback for non-caption drawtext."""
+    cjk = find_cjk_font()
+    if cjk:
+        return cjk
+    if Path(_LATIN_FALLBACK).is_file():
+        return _LATIN_FALLBACK
+    return None
+
+
+def require_cjk_font() -> str:
+    path = find_cjk_font()
+    if not path:
+        raise MediaError(_FONT_INSTALL_HINT)
+    return path
+
+
+def font_family_name(path: str) -> str:
+    key = path.replace("-", "").replace("_", "").replace(" ", "").lower()
+    if "notosanscjk" in key or "notosanscjksc" in key:
+        return "Noto Sans CJK SC"
+    if "notosanssc" in key:
+        return "Noto Sans SC"
+    if "wqy" in key or "wenquanyi" in key or "microhei" in key or "zenhei" in key:
+        return "WenQuanYi Micro Hei"
+    if "pingfang" in key:
+        return "PingFang SC"
+    if "msyh" in key:
+        return "Microsoft YaHei"
+    if "stheiti" in key or "heiti" in key:
+        return "Heiti SC"
+    if "simhei" in key:
+        return "SimHei"
+    return "Noto Sans CJK SC"
+
+
+def _fc_list_cjk() -> str | None:
+    fc = shutil.which("fc-list")
+    if not fc:
+        return None
+    try:
+        proc = subprocess.run(
+            [fc, ":lang=zh", "file"],
+            capture_output=True,
+            text=True,
+            timeout=8,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    for line in (proc.stdout or "").splitlines():
+        path = line.split(":")[0].strip()
+        if path and Path(path).is_file():
+            return path
     return None

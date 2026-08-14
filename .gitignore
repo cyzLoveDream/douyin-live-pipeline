@@ -51,3 +51,9 @@ htmlcov/
 *.swp
 
 config.yaml
+
+# Local BGM (keep README)
+assets/bgm/*.mp3
+assets/bgm/*.wav
+assets/bgm/*.m4a
+!assets/bgm/README.md

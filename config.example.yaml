@@ -22,30 +22,70 @@ record:
   max_seconds: 0       # 0 = until the live ends
   prefer: auto         # auto | ytdlp | ffmpeg
 
+transcribe:
+  model: small
+  language: zh
+  word_timestamps: true
+  vad_filter: true
+  compute_type: int8
+  device: cpu
+
 detect:
-  min_clip_seconds: 12
+  min_clip_seconds: 8
   max_clip_seconds: 45
+  max_clips: 5
   merge_gap_seconds: 4
   pad_before_seconds: 1.5
   pad_after_seconds: 2.0
   audio_window_seconds: 0.25
   audio_percentile: 90
   scene_threshold: 0.35
+  snap_max_seconds: 0.35
   # Optional JSON: [{"t": 12.3, "type": "chat"|"gift", "weight": 1}]
   # Not scraped from private APIs — only used if you already have a file.
   chat_events_file: null
+  keywords:
+    - 卧槽
+    - 绝了
+    - 太强
+    - 牛逼
+    - 哈哈
+    - 买它
+    - 秒杀
+    - 免费
+    - 倒计时
+    - 送给
+    - 家人们
+  weights:
+    energy: 1.0
+    flux: 0.8
+    speech: 0.6
+    scene: 0.5
+    keywords: 1.4
+    chat: 1.0
 
 edit:
   aspect: "9:16"
-  fill: blur           # blur | crop
+  fill: blur           # blur | crop  (clean preset forces crop)
   width: 1080
   height: 1920
   loudness_i: -14
   title_card: true
   title_card_seconds: 1.2
   source_caption: true
-  whisper: false
-  whisper_model: small
+  caption_style: douyin    # hormozi | douyin | standard
+  style: douyin_hot        # douyin_hot | clean | party
+  zoom_punch: true
+  shake: false
+  jumpcut: false
+  keyword_pop: false
+  hook_seconds: 1.2
+  punch_seconds: 0.45
+  silence_speed: 1.12
+  xfade_seconds: 0.25
+  caption_mask: true
+  fade_in: true
+  bgm: null               # local file, e.g. assets/bgm/loop.mp3; missing = skip
 
 publish:
   url: https://creator.douyin.com/creator-micro/content/upload

@@ -138,3 +138,39 @@ def make_landscape_video(path: Path, seconds: float = 2.0) -> Path:
         ]
     )
     return path
+
+
+def dummy_transcript(duration: float = 2.0):
+    """Word-level fixture so tests never download a whisper model."""
+    from dylive.transcribe import Segment, Transcript, Word
+
+    words = [
+        Word(0.00, 0.35, "家人们", 0.99),
+        Word(0.35, 0.70, "今晚", 0.99),
+        Word(0.70, 1.05, "太强", 0.99),
+        Word(1.05, 1.40, "了", 0.99),
+        Word(1.40, 1.80, "买它", 0.99),
+    ]
+    if duration > 2.0:
+        t = 1.8
+        extra = ["真的", "绝了", "秒杀"]
+        for tok in extra:
+            if t >= duration:
+                break
+            words.append(Word(t, min(duration, t + 0.35), tok, 0.9))
+            t += 0.35
+    return Transcript(
+        language="zh",
+        segments=[Segment(start=words[0].start, end=words[-1].end, text="".join(w.word for w in words), words=words)],
+    )
+
+
+class FakeTranscriber:
+    def __init__(self, transcript=None):
+        self.transcript = transcript or dummy_transcript()
+        self.calls = []
+
+    def transcribe(self, audio_path, *, language="zh"):
+        self.calls.append((str(audio_path), language))
+        self.transcript.language = language
+        return self.transcript

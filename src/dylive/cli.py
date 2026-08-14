@@ -1,4 +1,4 @@
-"""CLI: dylive run|watch|record|detect|edit|publish|login."""
+"""CLI: dylive run|watch|record|transcribe|detect|edit|compile|publish|login."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from dylive.logutil import setup_logging
 app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
-    help="抖音直播高能切片流水线：watch → record → detect → edit → publish",
+    help="抖音直播高能切片流水线：watch → record → transcribe → detect → edit → compile → publish",
 )
 
 log = logging.getLogger("dylive.cli")
@@ -73,22 +73,42 @@ def record(
 
 
 @app.command()
+def transcribe(
+    ctx: typer.Context,
+    source: Optional[str] = typer.Argument(
+        None, help="录像文件 / 目录 / 房间 id；默认最近一次 job"
+    ),
+) -> None:
+    """转写口播（faster-whisper，词级时间戳）。检测和烧录字幕都依赖这一步。"""
+    from dylive.transcribe import transcribe_job
+
+    def go():
+        media, tr = transcribe_job(_cfg(ctx), source)
+        typer.echo(f"media: {media}")
+        typer.echo(f"segments: {len(tr.segments)}  words: {len(tr.words)}  lang: {tr.language}")
+        return tr
+
+    _run(go)
+
+
+@app.command()
 def detect(
     ctx: typer.Context,
     source: Optional[str] = typer.Argument(
         None, help="录像文件 / 目录 / 房间 id；默认最近一次 job"
     ),
 ) -> None:
-    """检测高能场面（音频能量 + 切镜 + 可选本地弹幕文件）。"""
+    """检测高能场面（RMS z-score + 频谱通量 + 口播/VAD + 切镜 + 关键词）。缺转写会先 transcribe。"""
     from dylive.detect import detect_job
 
     def go():
         media, highs = detect_job(_cfg(ctx), source)
         typer.echo(f"media: {media}")
         for i, h in enumerate(highs, 1):
-            typer.echo(f"  {i:02d}  {h.start:.1f}-{h.end:.1f}s  {','.join(h.reasons)}")
+            why = " ".join(f"{k}={v:.2f}" for k, v in (h.why or {}).items() if v)
+            typer.echo(f"  {i:02d}  {h.start:.1f}-{h.end:.1f}s  score={h.score:.2f}  {why}")
         if not highs:
-            typer.echo("没有检测到高能片段（可调低 detect.audio_percentile / scene_threshold）")
+            typer.echo("没有检测到高能片段（可调 detect.weights / keywords / max_clips）")
         return highs
 
     _run(go)
@@ -100,16 +120,31 @@ def edit(
     source: Optional[str] = typer.Argument(
         None, help="highlights.json / 房间 id / 录像；默认最近一次检测结果"
     ),
-    title: Optional[str] = typer.Option(None, "--title", help="标题卡文字"),
+    title: Optional[str] = typer.Option(None, "--title", help="标题卡 / hook 文字"),
     room_id: Optional[str] = typer.Option(None, "--room-id", help="来源字幕里的房间 id"),
 ) -> None:
-    """二次剪辑：9:16、响度、标题卡、来源字幕。"""
+    """二次剪辑：9:16、特效预设、强制烧录词级字幕。没有转写会先 transcribe。"""
     from dylive.edit import edit_job
 
     clips = _run(lambda: edit_job(_cfg(ctx), source, title=title, room_id=room_id))
     if clips:
         for c in clips:
             typer.echo(str(c))
+
+
+@app.command("compile")
+def compile_cmd(
+    ctx: typer.Context,
+    source: Optional[str] = typer.Argument(
+        None, help="房间 id / edit.json 所在目录；默认最近一次 edit"
+    ),
+) -> None:
+    """把成片 xfade 合成 output/clips/<room>_pack.mp4。"""
+    from dylive.edit import compile_job
+
+    dest = _run(lambda: compile_job(_cfg(ctx), source))
+    if dest:
+        typer.echo(str(dest))
 
 
 @app.command()
@@ -152,23 +187,32 @@ def run(
     max_seconds: Optional[float] = typer.Option(None, "--max-seconds", help="最长录制秒数"),
     title: Optional[str] = typer.Option(None, "--title"),
 ) -> None:
-    """全流程: watch → record → detect → edit → publish。"""
+    """全流程: watch → record → transcribe → detect → edit → compile → publish。"""
     from dylive.detect import detect_job
-    from dylive.edit import edit_job
+    from dylive.edit import compile_job, edit_job
     from dylive.publish import publish_clips
     from dylive.record import record_url
+    from dylive.transcribe import transcribe_job
 
     cfg = _cfg(ctx)
 
     def go():
         dest = record_url(cfg, url, wait=True, max_seconds=max_seconds)
         typer.echo(f"recordings: {dest}")
+        media, tr = transcribe_job(cfg, dest)
+        typer.echo(f"transcript: {len(tr.words)} words  media={media}")
         media, highs = detect_job(cfg, dest)
         typer.echo(f"highlights: {len(highs)}  media={media}")
         clips = edit_job(cfg, dest.name, title=title, room_id=dest.name)
         for c in clips:
             typer.echo(f"clip: {c}")
-        publish_clips(cfg, clips, dry_run=dry_run, title=title)
+        try:
+            pack = compile_job(cfg, dest.name)
+            typer.echo(f"pack: {pack}")
+        except Exception as exc:  # noqa: BLE001
+            log.warning("合集跳过: %s", exc)
+        pub_title = title or (highs[0].title if highs else None)
+        publish_clips(cfg, clips, dry_run=dry_run, title=pub_title)
         return clips
 
     _run(go)
