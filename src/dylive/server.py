@@ -49,6 +49,7 @@ class RunBody(BaseModel):
     glitch: bool | None = None
     vignette: bool | None = None
     xfade: str | None = None
+    versions: list[str] | None = None
 
 
 class OpenBody(BaseModel):
@@ -138,6 +139,25 @@ def create_app(cfg: AppConfig | None = None) -> FastAPI:
     def health() -> dict[str, Any]:
         return {"ok": True, "ui": UI_URL, "jianying": jianying_available(), "version": _version()}
 
+    @app.get("/api/config")
+    def config_summary() -> dict[str, Any]:
+        from dylive.config import STYLES, XFADES
+
+        c = app.state.cfg
+        return {
+            "styles": sorted(STYLES),
+            "xfades": sorted(XFADES),
+            "caption_styles": ["hormozi", "douyin", "standard"],
+            "create": {
+                "hook": c.create.hook,
+                "cta": c.create.cta,
+                "voiceover": c.create.voiceover,
+                "filler_cut": c.create.filler_cut,
+                "versions": c.create.versions,
+                "voice": c.create.voice,
+            },
+        }
+
     @app.get("/api/effects")
     def effects() -> dict[str, Any]:
         cat = effect_catalog()
@@ -162,6 +182,16 @@ def create_app(cfg: AppConfig | None = None) -> FastAPI:
         if data is None:
             raise HTTPException(404, f"找不到房间 {room}")
         return data
+
+    @app.post("/api/create/{room}")
+    def api_create(room: str) -> dict[str, Any]:
+        from dylive.create import create_job
+
+        try:
+            payload = create_job(app.state.cfg, room)
+        except DyliveError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return {"ok": True, "create": payload}
 
     @app.post("/api/run")
     def start_run(body: RunBody) -> dict[str, Any]:
@@ -285,6 +315,8 @@ def apply_run_overrides(cfg: AppConfig, body: RunBody) -> None:
         cfg.edit.glitch = body.glitch
     if body.vignette is not None:
         cfg.edit.vignette = body.vignette
+    if body.versions:
+        cfg.create.versions = list(body.versions)
 
 
 def serve_ui(
