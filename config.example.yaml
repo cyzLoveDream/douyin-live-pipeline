@@ -107,6 +107,20 @@ create:
   cta_text: null          # 自定义结尾引导
   narration_text: null    # 自定义解说稿
 
+# 大模型：DeepSeek（OpenAI 兼容）——导演决策 + 文案生成
+llm:
+  base_url: https://api.deepseek.com   # 或自定义 OpenAI 兼容网关
+  model: deepseek-v4-pro               # 推理型，判断最优特效
+  fast_model: deepseek-v4-flash        # 快速型，文案等轻量任务
+  temperature: 0.5
+
+# 可选多模态：豆包 Vision（火山方舟）——抽帧选封面
+vision:
+  enabled: true
+  base_url: https://ark.cn-beijing.volces.com/api/v3
+  model: doubao-1.5-vision-pro
+  frames_per_clip: 3
+
 publish:
   url: https://creator.douyin.com/creator-micro/content/upload
   mode: draft          # draft | publish
