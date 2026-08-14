@@ -2,7 +2,7 @@
 
 把一条抖音直播链接变成竖屏高能切片：转写 → 多信号高能检测 → 词级字幕 + 抖音风特效 → 本地客户端预览 → 可选剪映草稿 / 发布。换机器 `git clone` 后按本文安装即可跑。
 
-包名 **dylive**，命令行入口也是 `dylive`。当前版本 **0.3.0**。
+包名 **dylive**，命令行入口也是 `dylive`。当前版本 **0.4.0**。
 
 这是 **直播切片流水线**，不是影视解说整片工具。口播转写、高能窗、成片字幕和特效是一等公民，不是可选项。
 
@@ -87,7 +87,7 @@ dylive login
 
 `--dry-run` **只跳过发布**。
 
-全流程：`watch → record → transcribe → detect → edit → compile → publish`。
+全流程：`watch → record → transcribe → detect → create(二次创作) → edit → compile → publish`。
 
 ---
 
@@ -109,6 +109,21 @@ dylive login
 有 API key（`OPENAI_API_KEY` 或 `DYLIVE_LLM_API_KEY`，可选 `DYLIVE_LLM_BASE_URL`）时，会给每段写抖音标题 / 3 个话题 / hook；**没 key 就用口播首句启发式，流水线不会失败**。
 
 ---
+
+## 二次创作（不是简单切片）
+
+`dylive create` 在检测之后、剪辑之前运行，产出 `data/jobs/<room>/create.json`：
+
+| 能力 | 说明 |
+| --- | --- |
+| 文案改写 | LLM 把口播改写为≤18字抖音文案；无 key 用口播首句 |
+| 开场钩子 | 花字钩子（用原声，不配音） |
+| 结尾 CTA | 「关注主播」引导花字（config 可自定义） |
+| 解说稿 + 配音 | edge-tts 合成旁白混入成片（可选 `.[voice]`，缺库自动跳过） |
+| 剪口播 | 去掉「嗯/那个/就是」等语气词，字幕更干净 |
+| 多版本 | `create.versions: [douyin_hot, cinematic]` 一个切片切多个风格 |
+
+无 LLM key 时全部降级为启发式，绝不失败。
 
 ## 字幕（每条成片必须有）
 
@@ -133,6 +148,8 @@ dylive login
 | **`douyin_hot`（默认）** | 9:16 模糊填充、loudnorm、douyin/hormozi 字幕、口播首句 hook、能量峰 **punch**、淡入、质感对比、暗角、轻度颗粒、底栏遮罩、进度条、来源字幕 |
 | `clean` | 裁切 9:16、standard 字幕、loudnorm、来源字幕，不 punch |
 | `party` | douyin_hot + 峰值微抖 + glitch/RGB分裂 + 静音略加速 + 关键词弹出 |
+| `cinematic` | 裁切 9:16、standard 字幕、电影感对比 + 暗角 + 颗粒、淡入，不 punch |
+| `vlog` | 9:16 模糊填充、douyin 字幕、饱和度 + 颗粒 + 进度条、口播 hook + punch |
 
 效果库在 `src/dylive/effects.py`：zoom_in/out, pan, punch_zoom, shake, flash, fade, caption_mask, progress_bar, saturation, vignette, grain, glitch, rgb_split, contrast, freeze, speed_ramp, mirror。图编译失败会降级，但默认预设仍应产出「看起来剪过」的文件。
 
