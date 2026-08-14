@@ -235,6 +235,16 @@ class VisionConfig:
 
 
 @dataclass
+class ActivityConfig:
+    """活动投稿要求：必带话题 + 内容方向指导（自动喂给导演与发布文案）。"""
+
+    enabled: bool = True
+    hashtags: list[str] = field(default_factory=list)
+    content_guide: str = ""
+    publish_note: str = ""
+
+
+@dataclass
 class AppConfig:
     paths: PathsConfig = field(default_factory=PathsConfig)
     http: HttpConfig = field(default_factory=HttpConfig)
@@ -247,6 +257,7 @@ class AppConfig:
     publish: PublishConfig = field(default_factory=PublishConfig)
     llm: LlmConfig = field(default_factory=LlmConfig)
     vision: VisionConfig = field(default_factory=VisionConfig)
+    activity: ActivityConfig = field(default_factory=ActivityConfig)
     source: Path | None = None
 
     def validate(self) -> None:
@@ -320,6 +331,7 @@ def load_config(path: Path | None = None) -> AppConfig:
         publish=_publish(raw.get("publish") or {}),
         llm=_llm(raw.get("llm") or {}),
         vision=_vision(raw.get("vision") or {}),
+        activity=_activity(raw.get("activity") or {}),
         source=cfg_path,
     )
     cfg.validate()
@@ -486,3 +498,12 @@ def _apply_llm_env(cfg: AppConfig) -> None:
     os.environ.setdefault("DYLIVE_LLM_FAST_MODEL", cfg.llm.fast_model)
     os.environ.setdefault("DYLIVE_VISION_BASE_URL", cfg.vision.base_url)
     os.environ.setdefault("DYLIVE_VISION_MODEL", cfg.vision.model)
+
+
+def _activity(raw: dict[str, Any]) -> ActivityConfig:
+    return ActivityConfig(
+        enabled=_bool(raw.get("enabled"), True),
+        hashtags=_str_list(raw.get("hashtags"), []),
+        content_guide=str(raw.get("content_guide") or "").strip(),
+        publish_note=str(raw.get("publish_note") or "").strip(),
+    )
