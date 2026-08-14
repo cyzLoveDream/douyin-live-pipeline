@@ -2,7 +2,7 @@ const $ = (id) => document.getElementById(id);
 const show = (id) => { $(id).hidden = false; };
 const hide = (id) => { $(id).hidden = true; };
 
-const state = { room: null, runId: null, pollTimer: null };
+const state = { room: null, runId: null, pollTimer: null, lastJob: null };
 
 async function api(path, opts) {
   const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
@@ -11,18 +11,13 @@ async function api(path, opts) {
   return data;
 }
 
-function fmtSec(s) {
-  if (s == null || isNaN(s)) return "";
-  const m = Math.floor(s / 60), r = Math.round(s % 60);
-  return m + ":" + String(r).padStart(2, "0");
-}
-
 function esc(s) {
   return String(s == null ? "" : s).replace(/[&<>"]/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
 
 function renderGrid(job) {
+  state.lastJob = job;
   const clips = (job.clips || []).filter((c) => c.url && !c.pack);
   const pack = (job.clips || []).find((c) => c.url && c.pack);
   const highs = job.highlights || [];
@@ -31,12 +26,14 @@ function renderGrid(job) {
     const score = h.score != null ? (h.score * 100).toFixed(0) : "";
     const tags = (h.hashtags || []).slice(0, 3).map((t) => "<span>" + esc(t) + "</span>").join("");
     return [
-      '<div class="card" data-url="' + esc(c.url) + '">',
+      '<div class="card" data-url="' + esc(c.url) + '" data-index="' + i + '">',
       '<div class="cover"><video src="' + esc(c.url) + '#t=0.1" muted></video>',
       score ? '<span class="score">' + score + ' 分</span>' : "",
       "</div>",
       '<div class="meta"><div class="title">' + esc(h.title || c.name) + "</div>",
-      '<div class="tags">' + tags + "</div></div>",
+      '<div class="tags">' + tags + "</div>",
+      '<button class="reclip">重新切</button>',
+      "</div>",
       "</div>",
     ].join("");
   });
@@ -131,15 +128,39 @@ async function pollRun() {
   tick();
 }
 
+async function reclip(room, index, btn) {
+  btn.disabled = true;
+  btn.textContent = "剪辑中…";
+  try {
+    await api("/api/reclip/" + encodeURIComponent(room), {
+      method: "POST",
+      body: JSON.stringify({ index: Number(index) }),
+    });
+    await refreshResults();
+  } catch (e) {
+    alert("重切失败：" + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "重新切";
+  }
+}
+
 $("btn-start").addEventListener("click", start);
 $("url").addEventListener("keydown", (e) => { if (e.key === "Enter") start(); });
 
 $("grid").addEventListener("click", (e) => {
+  const reclipBtn = e.target.closest(".reclip");
+  if (reclipBtn) {
+    const card = reclipBtn.closest(".card");
+    reclip(state.lastJob.room, card.dataset.index, reclipBtn);
+    return;
+  }
   const card = e.target.closest(".card");
-  if (!card) return;
+  if (!card || !card.dataset.url) return;
   $("preview").src = card.dataset.url;
   show("backdrop");
 });
+
 $("btn-close").addEventListener("click", () => { $("preview").pause(); hide("backdrop"); });
 $("backdrop").addEventListener("click", (e) => { if (e.target === $("backdrop")) { $("preview").pause(); hide("backdrop"); } });
 

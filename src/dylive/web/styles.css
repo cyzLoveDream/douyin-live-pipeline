@@ -1,7 +1,6 @@
 :root {
   --bg: #08080a;
   --surface: #121216;
-  --surface-2: #1a1a20;
   --line: rgba(255, 255, 255, 0.08);
   --text: #f5f5f7;
   --muted: #9a9aa3;
@@ -125,6 +124,14 @@ body {
 }
 .tags { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 5px; }
 .tags span { font-size: 11px; color: var(--cyan); }
+.reclip {
+  margin-top: 10px; width: 100%; padding: 7px 0;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: transparent; color: var(--muted);
+  font-size: 12px; cursor: pointer; transition: all .15s;
+}
+.reclip:hover { color: var(--red); border-color: rgba(254, 44, 85, 0.5); }
+.reclip:disabled { opacity: .5; cursor: default; }
 .empty { text-align: center; padding: 8vh 0; }
 .empty h2 { font-size: 20px; margin: 0 0 10px; color: var(--muted); }
 
