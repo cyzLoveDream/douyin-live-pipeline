@@ -121,6 +121,16 @@ vision:
   model: doubao-seed-2-1-pro-260628
   frames_per_clip: 3
 
+# 活动投稿要求：自动喂给导演（内容方向指导）+ 发布（必带话题）
+activity:
+  enabled: true
+  hashtags:              # 必带话题（每条切片 + 发布都自动带上）
+    - "#逆水寒黄金畅玩服"
+    - "#分享我的逆水寒爱播"
+    - "#逆水寒淘金计划"
+  content_guide: "围绕《逆水寒》旭旭宝宝、浮夸等黄金畅玩主播相关内容进行二次创作，包含主播高光操作、搞笑整活瞬间、直播名场面；必须二次剪辑加工。"
+  publish_note: ""       # 发布文案附加内容（可选，如 @官方账号）
+
 publish:
   url: https://creator.douyin.com/creator-micro/content/upload
   mode: draft          # draft | publish
