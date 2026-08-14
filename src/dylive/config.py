@@ -215,6 +215,26 @@ class PublishConfig:
 
 
 @dataclass
+class LlmConfig:
+    """大模型：DeepSeek（OpenAI 兼容），用于导演决策与文案生成。"""
+
+    base_url: str = "https://api.deepseek.com"
+    model: str = "deepseek-v4-pro"
+    fast_model: str = "deepseek-v4-flash"
+    temperature: float = 0.5
+
+
+@dataclass
+class VisionConfig:
+    """可选多模态：豆包 Vision（火山方舟），用于抽帧选封面。"""
+
+    enabled: bool = True
+    base_url: str = "https://ark.cn-beijing.volces.com/api/v3"
+    model: str = "doubao-1.5-vision-pro"
+    frames_per_clip: int = 3
+
+
+@dataclass
 class AppConfig:
     paths: PathsConfig = field(default_factory=PathsConfig)
     http: HttpConfig = field(default_factory=HttpConfig)
@@ -225,6 +245,8 @@ class AppConfig:
     edit: EditConfig = field(default_factory=EditConfig)
     create: CreateConfig = field(default_factory=CreateConfig)
     publish: PublishConfig = field(default_factory=PublishConfig)
+    llm: LlmConfig = field(default_factory=LlmConfig)
+    vision: VisionConfig = field(default_factory=VisionConfig)
     source: Path | None = None
 
     def validate(self) -> None:
@@ -296,9 +318,12 @@ def load_config(path: Path | None = None) -> AppConfig:
         edit=_edit(raw.get("edit") or {}),
         create=_create(raw.get("create") or {}),
         publish=_publish(raw.get("publish") or {}),
+        llm=_llm(raw.get("llm") or {}),
+        vision=_vision(raw.get("vision") or {}),
         source=cfg_path,
     )
     cfg.validate()
+    _apply_llm_env(cfg)
     return cfg
 
 
@@ -434,3 +459,30 @@ def _publish(raw: dict[str, Any]) -> PublishConfig:
             raw.get("timeout_seconds"), 180, name="publish.timeout_seconds", min_v=30
         ),
     )
+
+
+def _llm(raw: dict[str, Any]) -> LlmConfig:
+    return LlmConfig(
+        base_url=str(raw.get("base_url") or LlmConfig.base_url),
+        model=str(raw.get("model") or "deepseek-v4-pro"),
+        fast_model=str(raw.get("fast_model") or "deepseek-v4-flash"),
+        temperature=_num(raw.get("temperature"), 0.5, name="llm.temperature", min_v=0),
+    )
+
+
+def _vision(raw: dict[str, Any]) -> VisionConfig:
+    return VisionConfig(
+        enabled=_bool(raw.get("enabled"), True),
+        base_url=str(raw.get("base_url") or VisionConfig.base_url),
+        model=str(raw.get("model") or "doubao-1.5-vision-pro"),
+        frames_per_clip=_int(raw.get("frames_per_clip"), 3, name="vision.frames_per_clip", min_v=1),
+    )
+
+
+def _apply_llm_env(cfg: AppConfig) -> None:
+    """把 config 的 LLM/Vision 默认值注入环境变量（env 优先，config 兜底）。"""
+    os.environ.setdefault("DYLIVE_LLM_BASE_URL", cfg.llm.base_url)
+    os.environ.setdefault("DYLIVE_LLM_MODEL", cfg.llm.model)
+    os.environ.setdefault("DYLIVE_LLM_FAST_MODEL", cfg.llm.fast_model)
+    os.environ.setdefault("DYLIVE_VISION_BASE_URL", cfg.vision.base_url)
+    os.environ.setdefault("DYLIVE_VISION_MODEL", cfg.vision.model)
