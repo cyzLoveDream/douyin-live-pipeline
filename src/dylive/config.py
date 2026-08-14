@@ -230,7 +230,7 @@ class VisionConfig:
 
     enabled: bool = True
     base_url: str = "https://ark.cn-beijing.volces.com/api/v3"
-    model: str = "doubao-1.5-vision-pro"
+    model: str = "doubao-seed-2-1-pro-260628"
     frames_per_clip: int = 3
 
 
@@ -474,7 +474,7 @@ def _vision(raw: dict[str, Any]) -> VisionConfig:
     return VisionConfig(
         enabled=_bool(raw.get("enabled"), True),
         base_url=str(raw.get("base_url") or VisionConfig.base_url),
-        model=str(raw.get("model") or "doubao-1.5-vision-pro"),
+        model=str(raw.get("model") or "doubao-seed-2-1-pro-260628"),
         frames_per_clip=_int(raw.get("frames_per_clip"), 3, name="vision.frames_per_clip", min_v=1),
     )
 
