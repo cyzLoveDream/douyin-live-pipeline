@@ -87,8 +87,15 @@ DYLIVE_LLM_API_KEY=sk-xxx            # DeepSeek
 ```bash
 # DYLIVE_VISION_API_KEY=xxx
 # DYLIVE_VISION_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
-# DYLIVE_VISION_MODEL=doubao-1.5-vision-pro
+# DYLIVE_VISION_MODEL=doubao-seed-2-1-pro-260628
 ```
+
+> **豆包 Vision 开通**（正确模型名是 `doubao-seed-2-1-pro-260628`，旧名 `doubao-1.5-vision-pro` 已下线）：
+> 1. 火山方舟控制台 https://console.volcengine.com/ark → 左侧「开通管理」（需先实名认证）
+> 2. 「视觉大模型」分类 → 找到 **Doubao-Seed-2.1** → 点「开通」→ 勾选协议确认
+> 3. 开通后即可调用；更快更便宜的备选：`doubao-seed-2-1-turbo-260628`
+>
+> 常见报错：`InvalidEndpointOrModel.NotFound` = 模型名写错；`ModelNotOpen` = 模型名对但没开通，去控制台开通即可。
 
 **发布**：首次 `dylive login` 扫码一次，之后用持久化 cookie 全自动上传，无需再人工。
 
