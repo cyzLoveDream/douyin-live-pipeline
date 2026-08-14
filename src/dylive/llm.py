@@ -22,7 +22,7 @@ DEFAULT_MODEL = "deepseek-v4-pro"
 DEFAULT_FAST_MODEL = "deepseek-v4-flash"
 
 DEFAULT_VISION_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
-DEFAULT_VISION_MODEL = "doubao-1.5-vision-pro"
+DEFAULT_VISION_MODEL = "doubao-seed-2-1-pro-260628"
 
 
 def llm_api_key() -> str:
