@@ -16,6 +16,7 @@ dylive watch  <url>
 dylive record <url>
 dylive transcribe [path|room]   # 必做。data/jobs/<id>/transcript.json（segments + words）
 dylive detect [path|room]       # 缺转写会先 transcribe；写出 highlights.json（含 why）
+dylive create [room]             # 二次创作：文案改写/钩子/CTA/解说稿/剪口播；可选 edge-tts 配音
 dylive edit   [path|room]       # 强制烧字幕；写出 timeline.json + 成片 + 剪映旁路
 dylive compile [room]           # xfade 合成 <room>_pack.mp4
 dylive jianying [room]          # pyJianYingDraft 写草稿目录
