@@ -41,6 +41,7 @@ def edit_job(
     room_id: str | None = None,
     transcript: Transcript | None = None,
     transcriber=None,
+    only: int | None = None,
 ) -> list[Path]:
     cfg.paths.ensure()
     media, highlights, job_key = _load_highlights(cfg, source)
@@ -91,9 +92,16 @@ def edit_job(
 
     outputs: list[Path] = []
     all_words: list[Word] = []
-    for i, h in enumerate(highlights, start=1):
+    if only is not None:
+        if not (0 <= only < len(highlights)):
+            raise MediaError(f"片段索引 {only} 越界，共 {len(highlights)} 条")
+        items = [(only, highlights[only])]
+    else:
+        items = list(enumerate(highlights))
+    for orig_i, h in items:
+        i = orig_i + 1
         clip_title = title or h.title or (f"{room_id} 高能" if room_id else f"高能 {i}")
-        d = directives.get(i - 1) or {}
+        d = directives.get(orig_i) or {}
         d_style = d.get("style")
         d_effects = d.get("effects") or {}
         d_caption = d.get("caption_style")
@@ -121,7 +129,7 @@ def edit_job(
             )
             outputs.append(out)
             log.info("写出 %s (%.1fs)", out, h.duration)
-            row = vo_by_index.get(i - 1) or vo_by_index.get(i)
+            row = vo_by_index.get(orig_i) or vo_by_index.get(i)
             voice = (row or {}).get("voice")
             if cfg.create.voiceover and voice and Path(str(voice)).is_file():
                 try:
@@ -135,28 +143,46 @@ def edit_job(
 
     cfg.edit.style = base_style
 
-    try:
-        jy = export_jianying(
-            cfg,
-            room_id or job_key,
-            outputs,
-            words=all_words,
-            timeline=job_tl,
-            caption_style=resolve_style(cfg).caption_style,
-        )
-        log.info("剪映旁路导出 %s", jy)
-    except Exception as exc:  # noqa: BLE001
-        log.warning("剪映导出跳过: %s", exc)
+    if only is None:
+        try:
+            jy = export_jianying(
+                cfg,
+                room_id or job_key,
+                outputs,
+                words=all_words,
+                timeline=job_tl,
+                caption_style=resolve_style(cfg).caption_style,
+            )
+            log.info("剪映旁路导出 %s", jy)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("剪映导出跳过: %s", exc)
 
-    write_json(
-        cfg.paths.data / "jobs" / (room_id or media.stem) / "edit.json",
-        {
-            "clips": [str(p) for p in outputs],
-            "media": str(media),
-            "timeline": str(timeline_path(cfg, job_key)),
-            "titles": [h.title for h in highlights],
-        },
-    )
+    edit_json = cfg.paths.data / "jobs" / (room_id or media.stem) / "edit.json"
+    if only is not None and edit_json.is_file():
+        existing = read_json(edit_json)
+        old_clips = [Path(p) for p in existing.get("clips") or []]
+        new_names = {p.name for p in outputs}
+        merged = [p for p in old_clips if p.name not in new_names] + outputs
+        merged.sort(key=lambda p: p.name)
+        write_json(
+            edit_json,
+            {
+                "clips": [str(p) for p in merged],
+                "media": str(media),
+                "timeline": str(timeline_path(cfg, job_key)),
+                "titles": existing.get("titles") or [h.title for h in highlights],
+            },
+        )
+    else:
+        write_json(
+            edit_json,
+            {
+                "clips": [str(p) for p in outputs],
+                "media": str(media),
+                "timeline": str(timeline_path(cfg, job_key)),
+                "titles": [h.title for h in highlights],
+            },
+        )
     return outputs
 
 
