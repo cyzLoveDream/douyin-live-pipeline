@@ -38,6 +38,20 @@ def run_pipeline(
         create_job(cfg, dest.name)
     except Exception as exc:  # noqa: BLE001
         log.warning("二次创作跳过: %s", exc)
+    # 导演决策：DeepSeek v4-pro 判断每条片段的最优特效/风格/文案
+    try:
+        from dylive.director import director_job
+
+        director_job(cfg, dest.name)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("导演决策跳过: %s", exc)
+    # 可选：豆包 Vision 抽帧选封面（未配 key 自动跳过）
+    try:
+        from dylive.vision import pick_covers
+
+        pick_covers(cfg, media, highs, dest.name)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("视觉封面跳过: %s", exc)
     clips = edit_job(cfg, dest.name, title=title, room_id=dest.name)
     for c in clips:
         log.info("clip: %s", c)
