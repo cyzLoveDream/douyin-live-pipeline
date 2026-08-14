@@ -118,7 +118,7 @@ llm:
 vision:
   enabled: true
   base_url: https://ark.cn-beijing.volces.com/api/v3
-  model: doubao-1.5-vision-pro
+  model: doubao-seed-2-1-pro-260628
   frames_per_clip: 3
 
 publish:
