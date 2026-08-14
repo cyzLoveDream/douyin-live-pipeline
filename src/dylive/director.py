@@ -34,11 +34,21 @@ DIRECTOR_SYSTEM = (
 )
 
 
-def _build_prompt(f: dict[str, Any], cta: str) -> str:
+def _build_prompt(
+    f: dict[str, Any], cta: str, guide: str = "", required_tags: list[str] | None = None
+) -> str:
     sig = f["signals"]
+    guide_block = f"内容方向指导：{guide}\n\n" if guide else ""
+    tag_block = (
+        f"必带话题（必须原样包含在 hashtags 里）：{' '.join(required_tags)}\n"
+        if required_tags
+        else ""
+    )
     return (
         "下面是一条高能片段的客观特征，请判断最优剪辑方案。\n\n"
-        f"时长：{f['duration']:.1f} 秒\n"
+        + guide_block
+        + tag_block
+        + f"时长：{f['duration']:.1f} 秒\n"
         f"综合高能分：{f['score']:.2f}\n"
         f"信号强度：能量 {sig.get('energy', 0):.2f}、频谱 {sig.get('flux', 0):.2f}、"
         f"口播 {sig.get('speech', 0):.2f}、切镜 {sig.get('scene', 0):.2f}、"
@@ -63,15 +73,38 @@ def _build_prompt(f: dict[str, Any], cta: str) -> str:
     )
 
 
-def direct_clip(features: dict[str, Any], *, cta: str, index: int) -> dict[str, Any]:
+def direct_clip(
+    features: dict[str, Any],
+    *,
+    cta: str,
+    index: int,
+    guide: str = "",
+    required_tags: list[str] | None = None,
+) -> dict[str, Any]:
     """让 LLM 决策单条片段；失败降级启发式。"""
     fallback = _heuristic(features, cta, index)
     if not llm_available():
         return fallback
-    decision = chat_json(_build_prompt(features, cta), system=DIRECTOR_SYSTEM, temperature=0.5)
+    decision = chat_json(
+        _build_prompt(features, cta, guide=guide, required_tags=required_tags),
+        system=DIRECTOR_SYSTEM,
+        temperature=0.5,
+    )
     if not decision:
         return fallback
     return _merge(decision, fallback)
+
+
+def _merge_tags(required: list[str], tags: list[str]) -> list[str]:
+    """必带话题在前，去重，再拼接 LLM 生成的话题。"""
+    out: list[str] = []
+    seen: set[str] = set()
+    for t in list(required) + list(tags):
+        t = str(t).strip()
+        if t and t not in seen:
+            out.append(t)
+            seen.add(t)
+    return out
 
 
 def _merge(d: dict[str, Any], fb: dict[str, Any]) -> dict[str, Any]:
@@ -168,11 +201,16 @@ def director_job(cfg: AppConfig, source: str | Path | None = None) -> dict[str, 
     tr_file = transcript_path(cfg, job_key)
     transcript = load_transcript(tr_file) if tr_file.is_file() else None
     highs = polish_highlights(highlights, transcript, room_id=job_key)
+    act = cfg.activity
+    required = [t.strip() for t in act.hashtags if t and t.strip()] if act.enabled else []
+    guide = act.content_guide.strip() if act.enabled else ""
     cta = (cfg.create.cta_text or "").strip() or generate_cta(room_id=job_key)
     clips: list[dict[str, Any]] = []
     for i, h in enumerate(highs):
         f = _features(cfg, h, transcript, job_key)
-        d = direct_clip(f, cta=cta, index=i)
+        d = direct_clip(f, cta=cta, index=i, guide=guide, required_tags=required)
+        d["hashtags"] = _merge_tags(required, d.get("hashtags") or [])
+        d["publish_text"] = (d["title"] + " " + " ".join(d["hashtags"])).strip()
         d.update({"index": i, "start": h.start, "end": h.end, "score": h.score})
         clips.append(d)
         h.title = d["title"]
