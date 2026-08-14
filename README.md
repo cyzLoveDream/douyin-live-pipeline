@@ -99,6 +99,21 @@ DYLIVE_LLM_API_KEY=sk-xxx            # DeepSeek
 
 **发布**：首次 `dylive login` 扫码一次，之后用持久化 cookie 全自动上传，无需再人工。
 
+**活动投稿要求**（可选，`config.yaml` 的 `activity` 段）：配置后自动生效——
+
+- `hashtags`：必带话题，每条切片与发布文案都自动带上
+- `content_guide`：内容方向，自动喂给 DeepSeek 导演作为剪辑指导
+- `publish_note`：发布文案附加内容（如 @官方账号）
+
+```yaml
+activity:/n  enabled: true
+  hashtags:/n    - "#逆水寒黄金畅玩服"
+    - "#分享我的逆水寒爱播"
+    - "#逆水寒淘金计划"
+  content_guide: "围绕《逆水寒》旭旭宝宝、浮夸等黄金畅玩主播进行二次创作，含高光操作、搞笑整活、名场面；必须二次剪辑加工。"
+  publish_note: ""
+```
+
 ## 命令
 
 ```bash
