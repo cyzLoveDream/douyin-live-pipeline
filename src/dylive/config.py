@@ -27,6 +27,9 @@ DEFAULT_KEYWORDS = [
     "家人们",
 ]
 
+STYLES = {"douyin_hot", "clean", "party", "cinematic", "vlog"}
+XFADES = {"fade", "fadeblack", "wipeleft", "slideleft", "circlecrop", "slideup"}
+
 
 def _as_path(value: Any, default: str) -> Path:
     raw = default if value is None else str(value)
@@ -185,6 +188,24 @@ class EditConfig:
 
 
 @dataclass
+class CreateConfig:
+    """二次创作：钩子 / CTA / 文案 / 解说 / 配音 / 剪口播 / 多版本。"""
+
+    hook: bool = True
+    cta: bool = True
+    description: bool = True
+    narration: bool = True
+    voiceover: bool = False
+    voice: str = "zh-CN-XiaoxiaoNeural"
+    rate: str = "+0%"
+    filler_cut: bool = True
+    versions: list[str] = field(default_factory=list)
+    hook_text: str | None = None
+    cta_text: str | None = None
+    narration_text: str | None = None
+
+
+@dataclass
 class PublishConfig:
     url: str = "https://creator.douyin.com/creator-micro/content/upload"
     mode: str = "draft"
@@ -202,6 +223,7 @@ class AppConfig:
     transcribe: TranscribeConfig = field(default_factory=TranscribeConfig)
     detect: DetectConfig = field(default_factory=DetectConfig)
     edit: EditConfig = field(default_factory=EditConfig)
+    create: CreateConfig = field(default_factory=CreateConfig)
     publish: PublishConfig = field(default_factory=PublishConfig)
     source: Path | None = None
 
@@ -214,10 +236,10 @@ class AppConfig:
             raise ConfigError("record.prefer 只能是 auto / ytdlp / ffmpeg")
         if self.edit.fill not in {"blur", "crop"}:
             raise ConfigError("edit.fill 只能是 blur / crop")
-        if self.edit.style not in {"douyin_hot", "clean", "party"}:
-            raise ConfigError("edit.style 只能是 douyin_hot / clean / party")
-        if self.edit.xfade not in {"fade", "fadeblack", "wipeleft", "slideleft", "circlecrop"}:
-            raise ConfigError("edit.xfade 只能是 fade / fadeblack / wipeleft / slideleft / circlecrop")
+        if self.edit.style not in STYLES:
+            raise ConfigError(f"edit.style 只能是 {' / '.join(sorted(STYLES))}")
+        if self.edit.xfade not in XFADES:
+            raise ConfigError(f"edit.xfade 只能是 {' / '.join(sorted(XFADES))}")
         if self.edit.caption_style not in {"hormozi", "douyin", "standard"}:
             raise ConfigError("edit.caption_style 只能是 hormozi / douyin / standard")
         if self.publish.mode not in {"draft", "publish"}:
@@ -228,6 +250,9 @@ class AppConfig:
             raise ConfigError("record.segment_seconds 太短（至少 5 秒）")
         if not (1.05 <= self.edit.silence_speed <= 1.25):
             raise ConfigError("edit.silence_speed 应在 1.05–1.25（party 静音加速）")
+        bad = [v for v in self.create.versions if v not in STYLES]
+        if bad:
+            raise ConfigError(f"create.versions 含未知风格 {bad}，可选 {' / '.join(sorted(STYLES))}")
 
 
 def find_config_path(explicit: Path | None = None) -> Path | None:
@@ -269,6 +294,7 @@ def load_config(path: Path | None = None) -> AppConfig:
         transcribe=_transcribe(raw.get("transcribe") or {}),
         detect=_detect(raw.get("detect") or {}),
         edit=_edit(raw.get("edit") or {}),
+        create=_create(raw.get("create") or {}),
         publish=_publish(raw.get("publish") or {}),
         source=cfg_path,
     )
@@ -378,6 +404,23 @@ def _edit(raw: dict[str, Any]) -> EditConfig:
         progress=_bool_opt(raw.get("progress")),
         whisper=_bool(raw.get("whisper"), True),
         whisper_model=str(raw.get("whisper_model") or raw.get("model") or "small"),
+    )
+
+
+def _create(raw: dict[str, Any]) -> CreateConfig:
+    return CreateConfig(
+        hook=_bool(raw.get("hook"), True),
+        cta=_bool(raw.get("cta"), True),
+        description=_bool(raw.get("description"), True),
+        narration=_bool(raw.get("narration"), True),
+        voiceover=_bool(raw.get("voiceover"), False),
+        voice=str(raw.get("voice") or "zh-CN-XiaoxiaoNeural"),
+        rate=str(raw.get("rate") or "+0%"),
+        filler_cut=_bool(raw.get("filler_cut"), True),
+        versions=_str_list(raw.get("versions"), []),
+        hook_text=str(raw["hook_text"]) if raw.get("hook_text") else None,
+        cta_text=str(raw["cta_text"]) if raw.get("cta_text") else None,
+        narration_text=str(raw["narration_text"]) if raw.get("narration_text") else None,
     )
 
 

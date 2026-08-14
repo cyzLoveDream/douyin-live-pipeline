@@ -74,7 +74,7 @@ edit:
   title_card_seconds: 1.2
   source_caption: true
   caption_style: douyin    # hormozi | douyin | standard
-  style: douyin_hot        # douyin_hot | clean | party
+  style: douyin_hot        # douyin_hot | clean | party | cinematic | vlog
   zoom_punch: true
   shake: false
   jumpcut: false
@@ -83,7 +83,7 @@ edit:
   punch_seconds: 0.45
   silence_speed: 1.12
   xfade_seconds: 0.25
-  xfade: fadeblack         # fade | fadeblack | wipeleft | slideleft | circlecrop
+  xfade: fadeblack         # fade | fadeblack | wipeleft | slideleft | circlecrop | slideup
   caption_mask: true
   fade_in: true
   vignette: null           # null = follow preset
@@ -91,6 +91,21 @@ edit:
   glitch: null
   progress: null
   bgm: null               # local file, e.g. assets/bgm/loop.mp3; missing = skip
+
+# 二次创作：钩子 / CTA / 文案 / 解说 / 配音 / 剪口播 / 多版本
+create:
+  hook: true              # 开场钩子花字（用原声，不配音）
+  cta: true               # 结尾关注/点赞引导花字
+  description: true       # 生成发布文案 + 话题
+  narration: true         # 生成解说稿（供配音）
+  voiceover: false        # 是否用 edge-tts 合成配音混入成片（需 pip install -e ".[voice]"）
+  voice: zh-CN-XiaoxiaoNeural   # edge-tts 音色
+  rate: "+0%"
+  filler_cut: true        # 剪口播：字幕/检测去掉语气词
+  versions: []            # 多版本：例如 [douyin_hot, cinematic] 一个切片切多个风格
+  hook_text: null         # 自定义钩子（留空 = LLM/启发式）
+  cta_text: null          # 自定义结尾引导
+  narration_text: null    # 自定义解说稿
 
 publish:
   url: https://creator.douyin.com/creator-micro/content/upload
