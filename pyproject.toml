@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dylive"
-version = "0.4.0"
+version = "0.5.0"
 description = "Portable Douyin live clipping pipeline: watch, record, transcribe, detect highlights, create (二次创作), edit, publish."
 readme = "README.md"
 license = { text = "MIT" }
