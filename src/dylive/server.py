@@ -62,6 +62,10 @@ class PublishBody(BaseModel):
     title: str | None = None
 
 
+class ReclipBody(BaseModel):
+    index: int = 0
+
+
 class LogBroker:
     def __init__(self) -> None:
         self.history: list[str] = []
@@ -192,6 +196,17 @@ def create_app(cfg: AppConfig | None = None) -> FastAPI:
         except DyliveError as exc:
             raise HTTPException(400, str(exc)) from exc
         return {"ok": True, "create": payload}
+
+    @app.post("/api/reclip/{room}")
+    def api_reclip(room: str, body: ReclipBody | None = None) -> dict[str, Any]:
+        body = body or ReclipBody()
+        from dylive.edit import edit_job
+
+        try:
+            clips = edit_job(app.state.cfg, room, only=body.index)
+        except DyliveError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return {"ok": True, "clips": [str(c) for c in clips]}
 
     @app.post("/api/run")
     def start_run(body: RunBody) -> dict[str, Any]:
