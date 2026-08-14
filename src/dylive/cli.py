@@ -1,4 +1,4 @@
-"""CLI: dylive run|watch|record|transcribe|detect|edit|compile|jianying|ui|publish|login."""
+"""CLI: dylive run|watch|record|transcribe|detect|create|edit|compile|jianying|ui|publish|login."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from dylive.logutil import setup_logging
 app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
-    help="抖音直播高能切片流水线：watch → record → transcribe → detect → edit → compile → 剪映草稿 / 本地 UI → publish",
+    help="抖音直播高能切片流水线：watch → record → transcribe → detect → create → edit → compile → 剪映草稿 / 本地 UI → publish",
 )
 
 log = logging.getLogger("dylive.cli")
@@ -115,6 +115,28 @@ def detect(
 
 
 @app.command()
+def create(
+    ctx: typer.Context,
+    source: Optional[str] = typer.Argument(
+        None, help="highlights.json / 房间 id；默认最近一次检测结果"
+    ),
+) -> None:
+    """二次创作：文案改写、开场钩子、结尾 CTA、解说稿、剪口播删词；可选 edge-tts 配音。"""
+    from dylive.create import create_job
+
+    def go():
+        payload = create_job(_cfg(ctx), source)
+        typer.echo(f"cta: {payload.get('cta')}")
+        for c in payload.get("clips") or []:
+            typer.echo(f"  {c['index'] + 1:02d}  {c['title']}  hook={c['hook']}")
+            if c.get("voice"):
+                typer.echo(f"        voice={c['voice']}")
+        return payload
+
+    _run(go)
+
+
+@app.command()
 def edit(
     ctx: typer.Context,
     source: Optional[str] = typer.Argument(
@@ -123,7 +145,7 @@ def edit(
     title: Optional[str] = typer.Option(None, "--title", help="标题卡 / hook 文字"),
     room_id: Optional[str] = typer.Option(None, "--room-id", help="来源字幕里的房间 id"),
 ) -> None:
-    """二次剪辑：9:16、特效预设、强制烧录词级字幕。没有转写会先 transcribe。"""
+    """二次剪辑：9:16、特效预设、强制烧录词级字幕、可选 CTA 花字与配音。没有转写会先 transcribe。"""
     from dylive.edit import edit_job
 
     clips = _run(lambda: edit_job(_cfg(ctx), source, title=title, room_id=room_id))
@@ -219,7 +241,7 @@ def run(
         None, "--open-ui/--no-open-ui", help="结束后打开浏览器查看成片（有显示器时默认打开）"
     ),
 ) -> None:
-    """全流程: watch → record → transcribe → detect → edit → compile → publish。"""
+    """全流程: watch → record → transcribe → detect → create → edit → compile → publish。"""
     from dylive.pipeline import run_pipeline
     from dylive.server import has_display, serve_ui
 

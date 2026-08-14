@@ -31,6 +31,13 @@ def run_pipeline(
     log.info("transcript: %s words  media=%s", len(tr.words), media)
     media, highs = detect_job(cfg, dest)
     log.info("highlights: %s  media=%s", len(highs), media)
+    # 二次创作：文案改写 / 钩子 / CTA / 解说稿 / 剪口播 / 可选配音
+    try:
+        from dylive.create import create_job
+
+        create_job(cfg, dest.name)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("二次创作跳过: %s", exc)
     clips = edit_job(cfg, dest.name, title=title, room_id=dest.name)
     for c in clips:
         log.info("clip: %s", c)

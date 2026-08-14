@@ -63,26 +63,59 @@ def edit_job(
         highlights = [Highlight(start=0.0, end=end, reasons=["full"], score=0)]
 
     highlights = polish_highlights(highlights, transcript, room_id=room_id)
+
+    from dylive.create import load_create, mix_voiceover
+
+    create_data = load_create(cfg, job_key)
+    cta = (create_data or {}).get("cta") or None
+    vo_by_index: dict[int, dict] = {}
+    for k, row in enumerate((create_data or {}).get("clips") or []):
+        if isinstance(row, dict):
+            vo_by_index[int(row.get("index", k))] = row
+
+    styles = cfg.create.versions if cfg.create.versions else [cfg.edit.style]
+    multi = len(styles) > 1
+    base_style = cfg.edit.style
+
     job_tl = build_job_timeline(cfg, media, highlights, transcript, room_id=room_id)
     save_timeline(timeline_path(cfg, job_key), job_tl)
 
     outputs: list[Path] = []
     all_words: list[Word] = []
     for i, h in enumerate(highlights, start=1):
-        out = cfg.paths.output / f"{room_id or media.stem}_{i:02d}_{int(h.start)}-{int(h.end)}.mp4"
         clip_title = title or h.title or (f"{room_id} 高能" if room_id else f"高能 {i}")
-        render_clip(
-            cfg,
-            media,
-            h,
-            out,
-            title=clip_title,
-            room_id=room_id,
-            transcript=transcript,
-        )
-        outputs.append(out)
+        for style in styles:
+            cfg.edit.style = style
+            if multi:
+                out = cfg.paths.output / f"{room_id or media.stem}_{i:02d}_{style}_{int(h.start)}-{int(h.end)}.mp4"
+            else:
+                out = cfg.paths.output / f"{room_id or media.stem}_{i:02d}_{int(h.start)}-{int(h.end)}.mp4"
+            render_clip(
+                cfg,
+                media,
+                h,
+                out,
+                title=clip_title,
+                room_id=room_id,
+                transcript=transcript,
+                cta=cta if cfg.create.cta else None,
+                filler_cut=cfg.create.filler_cut,
+            )
+            outputs.append(out)
+            log.info("写出 %s (%.1fs)", out, h.duration)
+            row = vo_by_index.get(i - 1) or vo_by_index.get(i)
+            voice = (row or {}).get("voice")
+            if cfg.create.voiceover and voice and Path(str(voice)).is_file():
+                try:
+                    vo_out = out.with_name(out.stem + "_vo.mp4")
+                    mix_voiceover(out, Path(str(voice)), vo_out)
+                    outputs.append(vo_out)
+                    log.info("解说版 %s", vo_out)
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("配音混音跳过: %s", exc)
         all_words.extend(slice_words(transcript.words, h.start, h.end, origin=h.start))
-        log.info("写出 %s (%.1fs)", out, h.duration)
+
+    cfg.edit.style = base_style
 
     try:
         jy = export_jianying(
@@ -182,6 +215,8 @@ def render_clip(
     title: str,
     room_id: str | None,
     transcript: Transcript | None = None,
+    cta: str | None = None,
+    filler_cut: bool = False,
 ) -> Path:
     if transcript is None or not transcript.words:
         raise MediaError("没有词级字幕，请先运行 dylive transcribe")
@@ -208,6 +243,10 @@ def render_clip(
         caption = "来源 抖音直播"
 
     words = slice_words(transcript.words, start, highlight.end, origin=start)
+    if filler_cut:
+        from dylive.create import filter_filler_words
+
+        words = filter_filler_words(words)
     if not words:
         words = [Word(0.0, min(dur, 1.6), title[:12] or "高能", 1.0)]
 
@@ -269,6 +308,7 @@ def render_clip(
             pops=pops,
             plan=plan,
             extra_effects=extra_effects if spec == spec0 else None,
+            cta_text=cta,
             bgm=use_bgm,
         )
         args = [
