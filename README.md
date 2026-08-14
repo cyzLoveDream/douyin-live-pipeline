@@ -2,7 +2,7 @@
 
 把一条抖音直播链接变成竖屏高能切片：转写 → 多信号高能检测 → 词级字幕 + 抖音风特效 → 本地客户端预览 → 可选剪映草稿 / 发布。换机器 `git clone` 后按本文安装即可跑。
 
-包名 **dylive**，命令行入口也是 `dylive`。当前版本 **0.4.0**。
+包名 **dylive**，命令行入口也是 `dylive`。当前版本 **0.5.0**。
 
 这是 **直播切片流水线**，不是影视解说整片工具。口播转写、高能窗、成片字幕和特效是一等公民，不是可选项。
 
@@ -52,10 +52,51 @@ cp .env.example .env
 
 dylive ui 启动本地工作室。打开 http://127.0.0.1:8787 查看成片。run 结束会打印该地址。
 
+## 全自动（无人值守 + DeepSeek 导演）
+
+`dylive auto "<直播间链接>"` 一条命令跑完整个流水线，无需人工操作：
+
+```bash
+dylive auto "https://live.douyin.com/<web_rid>"
+```
+
+看播 → 录制 → 转写 → 高能检测 → **DeepSeek 导演决策** → 剪辑 → 发布，全程自动。你只需事后看 `output/clips/` 里的成片。
+
+**DeepSeek 导演决策**（`dylive director`）：把每条高能片段的客观信号（能量/频谱/口播/切镜/关键词/弹幕 + 转写原文）喂给大模型，让它判断最优剪辑方案：
+
+| 决策项 | 说明 |
+| --- | --- |
+| style | 从 douyin_hot / party / clean / cinematic / vlog 中选 |
+| effects | punch / shake / glitch / jumpcut / keyword_pop / progress / vignette / grain 开关 |
+| 文案 | 标题、开场钩子、话题标签、发布文案 |
+| reason | 一句话解释为什么这样剪（可查看 AI 剪辑思路） |
+
+决策结果写 `data/jobs/<room>/director.json`。无 LLM key 时降级为启发式规则，绝不失败。
+
+**大模型配置**（`.env`，OpenAI 兼容，默认 DeepSeek）：
+
+```bash
+DYLIVE_LLM_API_KEY=sk-xxx            # DeepSeek
+# DYLIVE_LLM_BASE_URL=https://api.deepseek.com
+# DYLIVE_LLM_MODEL=deepseek-v4-pro    # 推理型，判断最优特效
+# DYLIVE_LLM_FAST_MODEL=deepseek-v4-flash
+```
+
+**可选多模态**（豆包 Vision，抽帧选封面）：配置 `DYLIVE_VISION_API_KEY` 后自动启用；不配则跳过。
+
+```bash
+# DYLIVE_VISION_API_KEY=xxx
+# DYLIVE_VISION_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+# DYLIVE_VISION_MODEL=doubao-1.5-vision-pro
+```
+
+**发布**：首次 `dylive login` 扫码一次，之后用持久化 cookie 全自动上传，无需再人工。
+
 ## 命令
 
 ```bash
 dylive --help
+dylive auto "https://live.douyin.com/<web_rid>"      # 全自动：看播→剪辑→发布（DeepSeek 导演）
 dylive -c config.yaml run "https://live.douyin.com/<web_rid>" --dry-run
 dylive ui          # 打开 http://127.0.0.1:8787 查看成片
 ```
@@ -73,6 +114,9 @@ dylive transcribe recordings/745964462470
 # 多信号高能检测（缺 transcript.json 会先 transcribe）
 dylive detect
 
+# DeepSeek 导演决策：判断每条高能片段的最优特效/风格/文案
+dylive director
+
 # 二次剪辑：9:16 + 特效预设 + 强制烧录词级字幕；写出 timeline.json 和剪映旁路目录
 dylive edit --title "今晚高能" --room-id 745964462470
 
@@ -87,7 +131,7 @@ dylive login
 
 `--dry-run` **只跳过发布**。
 
-全流程：`watch → record → transcribe → detect → create(二次创作) → edit → compile → publish`。
+全流程：`watch → record → transcribe → detect → create(二次创作) → director(DeepSeek 导演决策) → edit → compile → publish`。
 
 ---
 
